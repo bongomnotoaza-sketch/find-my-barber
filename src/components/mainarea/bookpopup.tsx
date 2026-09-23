@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import useEmblaCarousel from "embla-carousel-react";
-import { motion, AnimatePresence } from "motion/react";
+import { motion } from "motion/react";
 import { X } from "lucide-react";
 
 type Service = {
