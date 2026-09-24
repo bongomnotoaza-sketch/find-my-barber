@@ -6,7 +6,7 @@ type AppFooterProps = {
 
 export default function AppFooter({ onPlusPress }: AppFooterProps) {
   return (
-    <footer className="w-full pb-30 pt-2">
+    <footer className="w-full pb-6 pt-2">
       <div className="flex flex-row items-center justify-around px-6">
         {/* Categories */}
         <button type="button">

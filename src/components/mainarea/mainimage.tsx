@@ -147,7 +147,7 @@ export default function MainImage({ images = defaultImages }: MainImageProps) {
       </div>
 
       {/* SLIDE INDICATORS — lifted above the Description + Footer stack */}
-      <div className="absolute bottom-44 left-1/2 z-20 flex -translate-x-1/2 items-center gap-2">
+      <div className="absolute bottom-28 left-1/2 z-20 flex -translate-x-1/2 items-center gap-2">
         {displayImages.map((_, index) => {
           const isActive = index === selectedIndex;
 
