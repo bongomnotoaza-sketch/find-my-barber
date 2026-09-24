@@ -15,7 +15,7 @@ export default function Description({
   const [expanded, setExpanded] = useState(false);
 
   return (
-    <div className="absolute bottom-[35%] left-4 z-10 w-full max-w-[75%]">
+    <div className="w-full max-w-[75%] px-4 pb-2">
       <div className="flex flex-row items-center">
         <span className="text-lg font-bold text-white">{username}</span>
 

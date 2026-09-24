@@ -1,0 +1,27 @@
+Main/home UI
+
+Logo.tsx
+Searchbar.tsx
+Header.tsx
+CategoryCard.tsx
+CategoryStrip.tsx
+MainImage.tsx / MainBodyImage
+MainNav.tsx
+Description.tsx
+AppFooter.tsx
+
+10. BarberHeader.tsx
+11. BarberStats / BarberStatistics.tsx
+12. Location.tsx
+13. PriceList.tsx
+14. Contact.tsx
+15. BookButton.tsx
+
+Booking flow
+16. BookingPopup.tsx
+17. OrderSummary.tsx
+
+App routes
+18. _layout.tsx
+19. index.tsx
+20. barber.tsx

@@ -6,8 +6,8 @@ type AppFooterProps = {
 
 export default function AppFooter({ onPlusPress }: AppFooterProps) {
   return (
-    <footer className="absolute top-[75%] left-0 right-0 h-[10%] z-10">
-      <div className="flex h-full flex-row items-center justify-around px-6">
+    <footer className="w-full pb-30 pt-2">
+      <div className="flex flex-row items-center justify-around px-6">
         {/* Categories */}
         <button type="button">
           <Compass size={25} color="#ffffff" />

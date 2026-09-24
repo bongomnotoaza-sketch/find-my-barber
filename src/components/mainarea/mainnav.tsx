@@ -8,7 +8,7 @@ type MainNavProps = {
   favourites?: number;
   shares?: number;
   onUserPress?: () => void;
-  onCommentsPress?: () => void; // NEW
+  onCommentsPress?: () => void;
 };
 
 export default function MainNav({
@@ -18,7 +18,7 @@ export default function MainNav({
   favourites = 0,
   shares = 0,
   onUserPress,
-  onCommentsPress, // NEW
+  onCommentsPress,
 }: MainNavProps) {
   const [liked, setLiked] = useState(false);
   const [favourited, setFavourited] = useState(false);
@@ -45,7 +45,7 @@ export default function MainNav({
   const favCount = favourites + (favourited ? 1 : 0);
 
   return (
-    <div className="absolute top-[25%] right-4 flex flex-col items-center">
+    <div className="absolute bottom-40 right-4 z-10 flex flex-col items-center">
       <button
         type="button"
         onClick={onUserPress}

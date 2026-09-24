@@ -63,7 +63,7 @@ export default function MainImage({ images = defaultImages }: MainImageProps) {
 
   return (
     <div
-      className="group relative h-[85%] top-[0%] w-full overflow-hidden bg-black"
+      className="group relative h-full w-full overflow-hidden bg-black"
       onMouseEnter={() => setIsPaused(true)}
       onMouseLeave={() => setIsPaused(false)}
       onTouchStart={() => setIsPaused(true)}
@@ -146,8 +146,8 @@ export default function MainImage({ images = defaultImages }: MainImageProps) {
         />
       </div>
 
-      {/* SLIDE INDICATORS */}
-      <div className="absolute bottom-5 left-1/2 flex -translate-x-1/2 items-center gap-2">
+      {/* SLIDE INDICATORS — lifted above the Description + Footer stack */}
+      <div className="absolute bottom-44 left-1/2 z-20 flex -translate-x-1/2 items-center gap-2">
         {displayImages.map((_, index) => {
           const isActive = index === selectedIndex;
 
@@ -175,7 +175,7 @@ export default function MainImage({ images = defaultImages }: MainImageProps) {
         initial={{ opacity: 0, y: -6 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4, ease: "easeOut" }}
-        className="pointer-events-none absolute right-3 top-3 rounded-full bg-black/40 px-2.5 py-1 text-[11px] font-medium text-white backdrop-blur-md"
+        className="pointer-events-none absolute right-3 top-3 z-20 rounded-full bg-black/40 px-2.5 py-1 text-[11px] font-medium text-white backdrop-blur-md"
       >
         {String(selectedIndex + 1).padStart(2, "0")} /{" "}
         {String(displayImages.length).padStart(2, "0")}
