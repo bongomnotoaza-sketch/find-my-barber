@@ -125,13 +125,13 @@ export default function App() {
             <MainImage />
           </div>
 
-          {/* Top bar: Search icon + Feed tabs */}
-          <div className="absolute left-3 right-3 top-3 z-20 flex items-center gap-3">
-            {/* Search icon — orange→red→pink gradient stroke */}
+          {/* Top bar: Search icon (left) + centered feed tabs */}
+          <div className="absolute inset-x-0 top-3 z-20 h-10">
+            {/* Search icon — pinned left */}
             <motion.button
               type="button"
               aria-label="Search"
-              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-black/40 backdrop-blur-md"
+              className="absolute left-3 top-0 flex h-9 w-9 items-center justify-center rounded-full bg-black/40 backdrop-blur-md"
               whileTap={{ scale: 0.92 }}
               whileHover={{ scale: 1.05 }}
             >
@@ -142,8 +142,8 @@ export default function App() {
               />
             </motion.button>
 
-            {/* Feed tabs */}
-            <div className="flex items-center gap-5">
+            {/* Feed tabs — centered on screen, evenly spaced */}
+            <div className="flex h-full items-center justify-center gap-10">
               {(["barbers", "general"] as const).map((tab) => {
                 const isActive = activeFeed === tab;
                 const label = tab === "barbers" ? "Your Barbers" : "General";
