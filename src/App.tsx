@@ -45,9 +45,11 @@ const defaultServices: Service[] = [
 const MUSIC_SRC = "/kontraa-water-afro-pop-music-445661.mp3";
 
 type View = "home" | "order-summary" | "barber";
+type Feed = "barbers" | "general";
 
 export default function App() {
   const [view, setView] = useState<View>("home");
+  const [activeFeed, setActiveFeed] = useState<Feed>("barbers");
   const [showBookPopup, setShowBookPopup] = useState(false);
   const [showComments, setShowComments] = useState(false);
   const [comments, setComments] = useState<Comment[]>([]);
@@ -117,25 +119,73 @@ export default function App() {
       )}
 
       {view === "home" && (
-        <div className="relative h-screen w-screen overflow-hidden bg-zinc-950">
+        <div className="relative h-dvh w-full overflow-hidden bg-zinc-950">
           {/* Background image carousel — fills entire screen */}
           <div className="absolute inset-0">
             <MainImage />
           </div>
 
-          {/* Search icon — top LEFT, orange→red→pink gradient */}
-          <motion.button
-            type="button"
-            aria-label="Search"
-            className="absolute left-3 top-3 z-20 flex h-9 w-9 items-center justify-center rounded-full bg-black/40 backdrop-blur-md"
-            whileTap={{ scale: 0.92 }}
-            whileHover={{ scale: 1.05 }}
-          >
-            <Search
-              className="h-4.5 w-4.5"
-              strokeWidth={2.2}
-              style={{ stroke: "url(#search-gradient)" }}
-            />
+          {/* Top bar: Search icon + Feed tabs */}
+          <div className="absolute left-3 right-3 top-3 z-20 flex items-center gap-3">
+            {/* Search icon — orange→red→pink gradient stroke */}
+            <motion.button
+              type="button"
+              aria-label="Search"
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-black/40 backdrop-blur-md"
+              whileTap={{ scale: 0.92 }}
+              whileHover={{ scale: 1.05 }}
+            >
+              <Search
+                className="h-4.5 w-4.5"
+                strokeWidth={2.2}
+                style={{ stroke: "url(#search-gradient)" }}
+              />
+            </motion.button>
+
+            {/* Feed tabs */}
+            <div className="flex items-center gap-5">
+              {(["barbers", "general"] as const).map((tab) => {
+                const isActive = activeFeed === tab;
+                const label = tab === "barbers" ? "Your Barbers" : "General";
+
+                return (
+                  <button
+                    key={tab}
+                    type="button"
+                    onClick={() => setActiveFeed(tab)}
+                    className="relative pb-1"
+                  >
+                    <span
+                      className={`text-[15px] transition-colors duration-200 ${
+                        isActive
+                          ? "font-bold text-white"
+                          : "font-medium text-white/60"
+                      }`}
+                    >
+                      {label}
+                    </span>
+
+                    {isActive && (
+                      <motion.span
+                        layoutId="feed-underline"
+                        className="absolute -bottom-0.5 left-0 right-0 h-[2px] rounded-full"
+                        style={{
+                          background:
+                            "linear-gradient(90deg, #fb923c 0%, #ef4444 50%, #ec4899 100%)",
+                        }}
+                        transition={{
+                          type: "spring",
+                          stiffness: 500,
+                          damping: 35,
+                        }}
+                      />
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Shared SVG gradient defs */}
             <svg width="0" height="0" className="absolute">
               <defs>
                 <linearGradient
@@ -151,7 +201,7 @@ export default function App() {
                 </linearGradient>
               </defs>
             </svg>
-          </motion.button>
+          </div>
 
           {/* Right-side action rail */}
           <MainNav
