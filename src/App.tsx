@@ -1,6 +1,8 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import type { User } from "@supabase/supabase-js";
 import { AnimatePresence, motion } from "motion/react";
 import { Search } from "lucide-react";
+import { getCurrentUser, onAuthStateChange, signOut } from "./lib/auth"; // adjust path
 import BookPopUp from "./components/mainarea/bookpopup";
 import Description from "./components/mainarea/description";
 import AppFooter from "./components/mainarea/footer";
@@ -10,6 +12,9 @@ import OrderSummary from "./components/mainarea/ordersummary";
 import BarberScreen from "./components/mainarea/barber";
 import BackgroundMusic from "./components/mainarea/backroundmusic";
 import CommentsPopUp from "./components/mainarea/comments";
+import Login from "./components/mainarea/loginpage";
+import Sidebar from "./components/sidebar/sidebar";
+import SignUp from "./components/mainarea/signup";
 
 type Service = {
   image: string;
@@ -48,14 +53,36 @@ type View = "home" | "order-summary" | "barber";
 type Feed = "barbers" | "general";
 
 export default function App() {
+  const [user, setUser] = useState<User | null>(null);
+  const [checkingSession, setCheckingSession] = useState(true);
+
   const [view, setView] = useState<View>("home");
   const [activeFeed, setActiveFeed] = useState<Feed>("barbers");
   const [showBookPopup, setShowBookPopup] = useState(false);
   const [showComments, setShowComments] = useState(false);
+  const [showSidebar, setShowSidebar] = useState(false);
+  const [showSignUp, setShowSignUp] = useState(false);
   const [comments, setComments] = useState<Comment[]>([]);
   const [selectedIndex, setSelectedIndex] = useState<number | undefined>(
     undefined
   );
+
+  // Check for an existing session on mount
+  useEffect(() => {
+    getCurrentUser().then((result) => {
+      if (result.success) {
+        setUser(result.data);
+      }
+      setCheckingSession(false);
+    });
+
+    // Keep state in sync with sign-in/sign-out elsewhere (token refresh, etc.)
+    const unsubscribe = onAuthStateChange((u) => {
+      setUser(u);
+    });
+
+    return unsubscribe;
+  }, []);
 
   const handleBook = () => {
     if (selectedIndex === undefined) return;
@@ -76,8 +103,47 @@ export default function App() {
     ]);
   };
 
+  const handleSignOut = async () => {
+    const result = await signOut();
+    if (!result.success) {
+      console.error("Sign out failed:", result.error);
+      return;
+    }
+    // Close the sidebar; onAuthStateChange will set `user` to null,
+    // which sends the app back to the <Login /> screen automatically.
+    setShowSidebar(false);
+  };
+
   const selectedService =
     selectedIndex !== undefined ? defaultServices[selectedIndex] : undefined;
+
+  if (checkingSession) {
+    return (
+      <div className="min-h-screen bg-black flex items-center justify-center">
+        {/* simple splash while we check for an existing session */}
+      </div>
+    );
+  }
+
+  if (!user) {
+    if (showSignUp) {
+      return (
+        <SignUp
+          onClose={() => setShowSignUp(false)}
+          onSignUpSuccess={() => setShowSignUp(false)}
+        />
+      );
+    }
+
+    return (
+      <Login
+        onLoginSuccess={() => {}}
+        onSignUpPress={() => setShowSignUp(true)}
+      />
+    );
+    // onLoginSuccess can stay a no-op — onAuthStateChange above will
+    // pick up the new session and set `user` for us automatically.
+  }
 
   return (
     <>
@@ -87,6 +153,35 @@ export default function App() {
         loop
         playing={view === "home"}
       />
+
+      {/* Sidebar — slides in over everything when open */}
+      <AnimatePresence>
+        {showSidebar && (
+          <>
+            {/* Backdrop */}
+            <motion.div
+              key="sidebar-backdrop"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              onClick={() => setShowSidebar(false)}
+              className="fixed inset-0 z-30 bg-black/50"
+            />
+            {/* Sidebar panel */}
+            <motion.div
+              key="sidebar-panel"
+              initial={{ x: "-100%" }}
+              animate={{ x: 0 }}
+              exit={{ x: "-100%" }}
+              transition={{ type: "spring", stiffness: 300, damping: 30 }}
+              className="fixed inset-y-0 left-0 z-40"
+            >
+              <Sidebar onSignOut={handleSignOut} />
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
 
       {view === "barber" && (
         <BarberScreen
@@ -221,7 +316,10 @@ export default function App() {
               description="Professional barber specializing in modern cuts, fades, beard grooming and styling."
             />
 
-            <AppFooter onPlusPress={() => setShowBookPopup(true)} />
+            <AppFooter
+              onPlusPress={() => setShowBookPopup(true)}
+              onUserPress={() => setShowSidebar(true)}
+            />
           </div>
 
           <AnimatePresence>

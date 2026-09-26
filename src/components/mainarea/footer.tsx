@@ -2,9 +2,10 @@ import { Compass, Plus, User } from "lucide-react";
 
 type AppFooterProps = {
   onPlusPress?: () => void;
+  onUserPress?: () => void;
 };
 
-export default function AppFooter({ onPlusPress }: AppFooterProps) {
+export default function AppFooter({ onPlusPress, onUserPress }: AppFooterProps) {
   return (
     <footer className="w-full pb-6 pt-2">
       <div className="flex flex-row items-center justify-around px-6">
@@ -27,7 +28,7 @@ export default function AppFooter({ onPlusPress }: AppFooterProps) {
         </button>
 
         {/* Account */}
-        <button type="button">
+        <button type="button" onClick={onUserPress}>
           <User size={25} color="#ffffff" />
         </button>
       </div>
