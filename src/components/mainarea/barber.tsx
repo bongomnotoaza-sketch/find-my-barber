@@ -10,10 +10,15 @@ type Service = {
 
 type BarberScreenProps = {
   onBack?: () => void;
-  onBook?: (service: Service) => void;
+  onBook?: (service: Service, date: Date) => void;
+  initialServiceIndex?: number;
 };
 
-export default function BarberScreen({ onBack, onBook }: BarberScreenProps) {
+export default function BarberScreen({
+  onBack,
+  onBook,
+  initialServiceIndex,
+}: BarberScreenProps) {
   return (
     <div className="flex flex-col h-screen bg-zinc-950 overflow-hidden">
       {/* Header - 10% */}
@@ -35,7 +40,10 @@ export default function BarberScreen({ onBack, onBook }: BarberScreenProps) {
 
       {/* Stats - 50% */}
       <div className="h-[60%] overflow-y-auto">
-        <BarberStats onBook={onBook} />
+        <BarberStats
+          onBook={onBook}
+          initialServiceIndex={initialServiceIndex}
+        />
       </div>
     </div>
   );

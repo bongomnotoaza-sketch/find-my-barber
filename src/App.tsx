@@ -66,6 +66,7 @@ export default function App() {
   const [selectedIndex, setSelectedIndex] = useState<number | undefined>(
     undefined
   );
+  const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
 
   // Check for an existing session on mount
   useEffect(() => {
@@ -84,15 +85,24 @@ export default function App() {
     return unsubscribe;
   }, []);
 
+  /* -----------------------------------------------------------
+     Home popup "Book" → go to barber screen with the service
+     already selected. The user then picks a date there.
+  ----------------------------------------------------------- */
   const handleBook = () => {
     if (selectedIndex === undefined) return;
     setShowBookPopup(false);
-    setView("order-summary");
+    setSelectedDate(undefined); // no date chosen yet — clear any stale value
+    setView("barber");
   };
 
-  const handleBarberBook = (service: Service) => {
+  /* -----------------------------------------------------------
+     Barber screen "Book" → go to order summary as normal
+  ----------------------------------------------------------- */
+  const handleBarberBook = (service: Service, date: Date) => {
     const index = defaultServices.findIndex((s) => s.name === service.name);
     setSelectedIndex(index >= 0 ? index : undefined);
+    setSelectedDate(date);
     setView("order-summary");
   };
 
@@ -116,6 +126,14 @@ export default function App() {
 
   const selectedService =
     selectedIndex !== undefined ? defaultServices[selectedIndex] : undefined;
+
+  const formattedDate = selectedDate
+    ? new Intl.DateTimeFormat("en-ZA", {
+        day: "numeric",
+        month: "long",
+        year: "numeric",
+      }).format(selectedDate)
+    : "";
 
   if (checkingSession) {
     return (
@@ -187,6 +205,7 @@ export default function App() {
         <BarberScreen
           onBack={() => setView("home")}
           onBook={handleBarberBook}
+          initialServiceIndex={selectedIndex}
         />
       )}
 
@@ -202,7 +221,7 @@ export default function App() {
 
           <OrderSummary
             serviceName={selectedService?.name ?? ""}
-            date="25 September 2026"
+            date={formattedDate}
             time="14:30"
             barberName="Fresh Cuts"
             total={selectedService?.price ?? ""}
