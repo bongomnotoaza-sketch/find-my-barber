@@ -1,0 +1,273 @@
+// src/data/refundPolicy.ts
+export const refundPolicyText = `FIND MY BARBER
+
+REFUND, CANCELLATION AND DISPUTE POLICY
+
+Effective Date: [INSERT DATE]
+Last Updated: [INSERT DATE]
+
+1. PURPOSE AND SCOPE
+
+1.1 This Refund, Cancellation and Dispute Policy (“Policy”) governs cancellations, refunds, no-shows, service disputes and payment-related matters arising from bookings made through the Find My Barber platform (“Platform”).
+
+1.2 The Platform is operated by [LEGAL BUSINESS NAME], registration number [INSERT], with its registered address at [INSERT ADDRESS] (“Find My Barber”, “we”, “us” or “our”).
+
+1.3 This Policy applies to all customers (“Customers”) and barbers or other service providers (“Barbers”) using the Platform.
+
+1.4 This Policy forms part of the Find My Barber Terms and Conditions and must be read together with those Terms and Conditions, the Barber Terms and Conditions and the Privacy Policy.
+
+1.5 Nothing in this Policy excludes, restricts or waives any right or remedy that a Customer has under applicable South African law where that right or remedy cannot lawfully be excluded or limited.
+
+⸻
+
+2. DEFINITIONS
+
+For purposes of this Policy:
+
+2.1 “Booking” means a reservation made through the Platform for a specific service, Barber, date and time.
+
+2.2 “Booking Amount” means the amount displayed to and paid by the Customer for a Booking, including any applicable fees disclosed before confirmation.
+
+2.3 “Cancellation” means the cancellation of a Booking before the scheduled service.
+
+2.4 “Completed Service” means a service that has been provided to the Customer by the Barber.
+
+2.5 “No-Show” means a Customer’s failure to attend a confirmed Booking within the applicable attendance period without cancelling the Booking in accordance with the applicable cancellation terms.
+
+2.6 “Refund” means the return of all or part of an amount paid by a Customer in connection with a Booking.
+
+2.7 “Service Dispute” means a complaint concerning a service that was not provided, materially differed from the booked service, or otherwise failed to comply with an applicable legal or contractual obligation.
+
+⸻
+
+3. FIND MY BARBER’S ROLE
+
+3.1 Find My Barber operates a booking and payment platform connecting Customers with independent Barbers.
+
+3.2 Unless expressly stated otherwise, Find My Barber does not itself provide the haircut, grooming or other service booked through the Platform.
+
+3.3 The Barber is responsible for providing the service described in the Booking and for complying with applicable laws and the Barber’s agreement with Find My Barber.
+
+3.4 Find My Barber facilitates the Booking, payment, cancellation, refund and payout processes through the Platform and its payment service providers.
+
+3.5 Find My Barber may administer a dispute between a Customer and Barber where the dispute relates to a Booking made through the Platform.
+
+3.6 Nothing in this section removes any responsibility imposed on Find My Barber by applicable law.
+
+⸻
+
+4. PAYMENT AND BOOKING CONFIRMATION
+
+4.1 Customers must pay through an available payment method before a Booking is confirmed, unless the Platform expressly provides otherwise.
+
+4.2 The service price and any applicable Platform, administration, payment or other charges will be displayed to the Customer before the Customer confirms the Booking.
+
+4.3 Once payment has been successfully processed and the Booking has been confirmed, the Booking becomes subject to this Policy and the cancellation terms disclosed during the Booking process.
+
+4.4 Payments may be processed through third-party payment service providers appointed by Find My Barber.
+
+4.5 Find My Barber may receive and settle Customer payments through its payment service provider before the applicable amount is paid to the Barber.
+
+⸻
+
+5. BARBER PAYOUTS
+
+5.1 A Customer payment does not automatically constitute an immediate payout to the Barber.
+
+5.2 Find My Barber may retain the amount applicable to a Booking within its payment and settlement process until the conditions for Barber payout have been satisfied.
+
+5.3 Subject to this Policy, the Barber becomes eligible for payout after the applicable service has been completed and the Booking has entered the applicable completed or payout-eligible state.
+
+5.4 Find My Barber may delay or suspend a payout where reasonably necessary to investigate:
+
+(a) a cancellation;
+
+(b) a Customer complaint;
+
+(c) a suspected fraudulent transaction;
+
+(d) a suspected false completion;
+
+(e) a payment reversal or chargeback; or
+
+(f) another matter materially affecting the Booking or payment.
+
+5.5 Barber payouts are subject to the payment provider’s applicable processing requirements and the Barber Terms and Conditions.
+
+5.6 Find My Barber will not intentionally withhold a Barber’s undisputed earned amount contrary to applicable law or the contractual terms governing the Booking.
+
+⸻
+
+6. CUSTOMER CANCELLATION
+
+6.1 Customers may cancel a Booking through the Platform where cancellation functionality is available.
+
+6.2 The cancellation period and any applicable cancellation charge will be displayed to the Customer before the Customer confirms the Booking.
+
+6.3 Where a Customer cancels within the applicable period for a full refund, Find My Barber will initiate the applicable refund.
+
+6.4 Where a Customer cancels outside the applicable full-refund period, a reasonable cancellation charge may apply where permitted by applicable law.
+
+6.5 The applicable cancellation charge may take into account the nature of the service, the amount of notice provided and the reasonable opportunity for the Barber to obtain another Booking.
+
+6.6 Find My Barber will not apply a cancellation charge where applicable law prohibits such a charge.
+
+6.7 Nothing in this Policy limits a Customer’s statutory cancellation rights.
+
+⸻
+
+7. BARBER CANCELLATION
+
+7.1 A Barber must cancel a Booking through the Platform as soon as reasonably possible if the Barber is unable to provide the booked service.
+
+7.2 If a Barber cancels and the service is not provided, Find My Barber will initiate the applicable refund to the Customer.
+
+7.3 No Barber payout will be made for a cancelled Booking where the service was not provided, subject to any applicable dispute, payment reversal or legal requirements.
+
+7.4 Repeated or unreasonable Barber cancellations may result in measures under the Barber Terms and Conditions.
+
+⸻
+
+8. BARBER NO-SHOW OR FAILURE TO PROVIDE SERVICE
+
+8.1 If a Customer attends a confirmed Booking and the Barber fails to provide the booked service, the Customer should report the matter through the Platform as soon as reasonably possible.
+
+8.2 Find My Barber may request information from both the Customer and Barber to establish what occurred.
+
+8.3 Where Find My Barber determines that the Barber failed to provide the booked service, Find My Barber will initiate the applicable refund.
+
+8.4 Find My Barber may delay or suspend the associated Barber payout while the matter is investigated.
+
+⸻
+
+9. CUSTOMER NO-SHOW
+
+9.1 Customers are expected to attend confirmed Bookings at the scheduled time and location.
+
+9.2 Where a Customer fails to attend without cancelling, the Booking may be treated as a No-Show.
+
+9.3 A reasonable No-Show or cancellation charge may be applied where permitted by applicable law and where the applicable terms were disclosed before the Booking was confirmed.
+
+9.4 Any amount remaining after an applicable No-Show charge will be handled in accordance with the Booking’s disclosed cancellation terms and applicable law.
+
+9.5 Customers should contact the Barber or Find My Barber as soon as reasonably possible where circumstances outside the Customer’s reasonable control prevent attendance.
+
+⸻
+
+10. SERVICE DISPUTES
+
+10.1 A Customer who believes that a service was not provided as booked or failed to comply with an applicable legal or contractual requirement may submit a Service Dispute through the Platform.
+
+10.2 A Service Dispute should be submitted as soon as reasonably possible after the service.
+
+10.3 Find My Barber may request relevant information, including:
+
+(a) Booking details;
+
+(b) the service selected;
+
+(c) photographs or other relevant evidence;
+
+(d) communications relating to the Booking; and
+
+(e) information from the Barber.
+
+10.4 Find My Barber may temporarily delay an associated Barber payout while a genuine dispute is reviewed, where permitted by the applicable payment arrangement.
+
+10.5 A Customer’s subjective dissatisfaction with the appearance of a completed haircut does not automatically create an entitlement to a full refund.
+
+10.6 Where a service materially failed to comply with the Booking or an applicable legal requirement, Find My Barber may provide an appropriate remedy, including a partial refund or full refund where justified.
+
+10.7 Nothing in this section limits any statutory right or remedy available to a Customer.
+
+⸻
+
+11. REFUND PROCESS
+
+11.1 Where a refund is approved or legally required, Find My Barber will initiate the refund through the relevant payment service provider.
+
+11.2 Where reasonably possible, refunds will be made using the same payment method used for the original transaction.
+
+11.3 The time required for a refund to reach the Customer may depend on the payment provider, bank or card issuer and may therefore be outside Find My Barber’s direct control.
+
+11.4 Find My Barber may provide the Customer with an estimated refund-processing period where that information is available.
+
+11.5 Where only part of a Booking is refundable, only the applicable refundable amount will be returned.
+
+11.6 Any Platform or administration fee will only be retained from a refund where such retention is permitted by applicable law and was properly disclosed to the Customer.
+
+11.7 Find My Barber will not use this Policy to deprive a Customer of a refund or other remedy that the Customer is legally entitled to receive.
+
+⸻
+
+12. FRAUD AND REFUND ABUSE
+
+12.1 Find My Barber may investigate suspected fraudulent or abusive use of the cancellation and refund system.
+
+12.2 This may include:
+
+(a) falsely claiming that a service was not provided;
+
+(b) falsely claiming that a Barber failed to attend;
+
+(c) falsely marking a Booking as completed;
+
+(d) manipulating Booking records;
+
+(e) using unauthorised payment credentials; or
+
+(f) repeatedly abusing the refund process.
+
+12.3 Find My Barber may take appropriate action under its Terms and Conditions and applicable law, including delaying payouts, restricting accounts or referring suspected unlawful conduct to an appropriate authority.
+
+12.4 Nothing in this section prevents a Customer from exercising a genuine statutory right or submitting a genuine complaint.
+
+⸻
+
+13. PAYMENT REVERSALS AND CHARGEBACKS
+
+13.1 A Customer payment may be reversed, disputed or charged back through a bank, card issuer or payment provider.
+
+13.2 Where a payment is reversed or disputed, Find My Barber may suspend the associated Barber payout and investigate the transaction.
+
+13.3 Customers are encouraged to use the Find My Barber dispute process where reasonably possible, without limiting any rights they may have through their bank, card issuer, payment provider or applicable law.
+
+13.4 Find My Barber may recover amounts properly owed to it or to a Barber where permitted by applicable law and the applicable contractual terms.
+
+⸻
+
+14. COMPLAINTS
+
+14.1 Customers and Barbers may submit complaints or refund enquiries through:
+
+Email: [INSERT SUPPORT EMAIL]
+Website: [INSERT WEBSITE]
+Address: [INSERT BUSINESS ADDRESS]
+
+14.2 Find My Barber will review complaints in accordance with this Policy, its Terms and Conditions and applicable South African law.
+
+14.3 Customers should provide the relevant Booking reference when submitting a complaint.
+
+⸻
+
+15. GOVERNING LAW AND STATUTORY RIGHTS
+
+15.1 This Policy is governed by the laws of the Republic of South Africa, unless applicable law requires otherwise.
+
+15.2 Nothing in this Policy is intended to exclude, restrict or waive any consumer right, remedy or protection that cannot lawfully be excluded or waived.
+
+15.3 If any provision of this Policy conflicts with a mandatory provision of applicable law, the mandatory legal provision will prevail to the extent of that conflict.
+
+15.4 The rights and remedies contained in this Policy are in addition to, and do not replace, rights available under applicable law.
+
+⸻
+
+16. CHANGES TO THIS POLICY
+
+16.1 Find My Barber may update this Policy where reasonably necessary, including to reflect changes to the Platform, payment systems, business operations or applicable law.
+
+16.2 The current version will be made available through the Platform.
+
+16.3 Where a material change affects existing Customers or existing Bookings, Find My Barber will take reasonable steps to communicate the change where required by applicable law.
+
+END OF POLICY`;

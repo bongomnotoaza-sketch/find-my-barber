@@ -33,10 +33,6 @@ const icons: Record<ToggleOption, string> = {
   'privacy policy': 'fa-shield-halved'
 };
 
-type SidebarBodyBottomProps = {
-  onSignOut: () => void | Promise<void>;
-};
-
 /* ------------------------------------------------------------------ */
 /*  Sub-view registry                                                  */
 /*  Add a row here to wire up a new sidebar page — nothing else needs */
@@ -67,7 +63,20 @@ const subViews = {
 
 type SidebarView = 'menu' | keyof typeof subViews;
 
-export default function SidebarBodyBottom({ onSignOut }: SidebarBodyBottomProps) {
+/* ---- CHANGED: added onOpenRefundsPolicy to props ---- */
+type SidebarBodyBottomProps = {
+  onSignOut: () => void | Promise<void>;
+  onOpenRefundsPolicy: () => void;
+  onOpenPrivacyPolicy: () => void; 
+  onOpenTerms: () => void;
+};
+
+export default function SidebarBodyBottom({
+  onSignOut,
+  onOpenRefundsPolicy,   // <-- CHANGED: destructured new prop
+  onOpenPrivacyPolicy,
+  onOpenTerms,     
+}: SidebarBodyBottomProps) {
   const [pending, setPending] = useState(false);
   const [view, setView] = useState<SidebarView>('menu');
 
@@ -82,6 +91,21 @@ export default function SidebarBodyBottom({ onSignOut }: SidebarBodyBottomProps)
   };
 
   const handleOptionClick = (option: ToggleOption) => {
+    /* ---- CHANGED: refunds policy hands off to the main screen ---- */
+    if (option === 'refunds policy') {
+      onOpenRefundsPolicy();
+      return;
+    }
+    if (option === 'privacy policy') {
+      onOpenPrivacyPolicy();
+      return;
+       
+    }
+    if (option === 'platform policy'){
+      onOpenTerms();
+      return;
+    }
+
     // If this option maps to a registered sub-view, show it.
     if (option in subViews) {
       setView(option as keyof typeof subViews);

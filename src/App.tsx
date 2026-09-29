@@ -3,6 +3,8 @@ import type { User } from "@supabase/supabase-js";
 import { AnimatePresence, motion } from "motion/react";
 import { Search } from "lucide-react";
 import { getCurrentUser, onAuthStateChange, signOut } from "./lib/auth"; // adjust path
+import { supabase } from "./lib/superbase"; // adjust path — NEW
+import { updateProfile } from "./lib/profiles"; // adjust path — NEW
 import BookPopUp from "./components/mainarea/bookpopup";
 import Description from "./components/mainarea/description";
 import AppFooter from "./components/mainarea/footer";
@@ -15,6 +17,10 @@ import CommentsPopUp from "./components/mainarea/comments";
 import Login from "./components/mainarea/loginpage";
 import Sidebar from "./components/sidebar/sidebar";
 import SignUp from "./components/mainarea/signup";
+import ProfileSetup from "./components/sidebar/set_profile"; // adjust path — NEW
+import RefundsPolicy from "./components/mainarea/refundspolicy";
+import PrivacyPolicy from "./components/mainarea/privacypolicys";
+import TermsPolicy from "./components/mainarea/termspolicys";
 
 type Service = {
   image: string;
@@ -49,12 +55,23 @@ const defaultServices: Service[] = [
 
 const MUSIC_SRC = "/kontraa-water-afro-pop-music-445661.mp3";
 
-type View = "home" | "order-summary" | "barber";
+type View =
+  | "home"
+  | "order-summary"
+  | "barber"
+  | "refunds-policy"
+  | "privacy-policy"
+  | "terms-policy";
+
 type Feed = "barbers" | "general";
 
 export default function App() {
   const [user, setUser] = useState<User | null>(null);
   const [checkingSession, setCheckingSession] = useState(true);
+
+  // NEW: profile setup gating
+  const [showProfileSetup, setShowProfileSetup] = useState(false);
+  const [checkingProfile, setCheckingProfile] = useState(true);
 
   const [view, setView] = useState<View>("home");
   const [activeFeed, setActiveFeed] = useState<Feed>("barbers");
@@ -84,6 +101,31 @@ export default function App() {
 
     return unsubscribe;
   }, []);
+
+  // NEW: whenever we have a user, check if their profile is complete
+  useEffect(() => {
+    if (!user) {
+      setCheckingProfile(false);
+      return;
+    }
+
+    setCheckingProfile(true);
+
+    supabase
+      .from("profiles")
+      .select("display_name")
+      .eq("id", user.id)
+      .single()
+      .then(({ data, error }) => {
+        // If no row / no display_name yet → needs setup
+        if (error || !data?.display_name) {
+          setShowProfileSetup(true);
+        } else {
+          setShowProfileSetup(false);
+        }
+        setCheckingProfile(false);
+      });
+  }, [user]);
 
   /* -----------------------------------------------------------
      Home popup "Book" → go to barber screen with the service
@@ -124,6 +166,21 @@ export default function App() {
     setShowSidebar(false);
   };
 
+  const handleOpenRefundsPolicy = () => {
+    setShowSidebar(false);
+    setView("refunds-policy");
+  };
+
+  const handleOpenPrivacyPolicy = () => {
+    setShowSidebar(false);
+    setView("privacy-policy");
+  };
+
+  const handleOpenTerms = () => {
+    setShowSidebar(false);
+    setView("terms-policy");
+  };
+
   const selectedService =
     selectedIndex !== undefined ? defaultServices[selectedIndex] : undefined;
 
@@ -135,10 +192,10 @@ export default function App() {
       }).format(selectedDate)
     : "";
 
-  if (checkingSession) {
+  if (checkingSession || (user && checkingProfile)) {
     return (
       <div className="min-h-screen bg-black flex items-center justify-center">
-        {/* simple splash while we check for an existing session */}
+        {/* simple splash while we check session / profile */}
       </div>
     );
   }
@@ -161,6 +218,29 @@ export default function App() {
     );
     // onLoginSuccess can stay a no-op — onAuthStateChange above will
     // pick up the new session and set `user` for us automatically.
+  }
+
+  // NEW: signed in but profile not set up yet
+  if (showProfileSetup) {
+    return (
+      <ProfileSetup
+        onContinue={async (details) => {
+          const result = await updateProfile({
+            displayName: details.displayName,
+            bio: details.bio,
+            avatarFile:
+              details.avatar.type === "upload" ? details.avatar.file : null,
+          });
+
+          if (!result.success) {
+            console.error("Profile setup failed:", result.error);
+            return; // keep them on the screen
+          }
+
+          setShowProfileSetup(false);
+        }}
+      />
+    );
   }
 
   return (
@@ -195,7 +275,12 @@ export default function App() {
               transition={{ type: "spring", stiffness: 300, damping: 30 }}
               className="fixed inset-y-0 left-0 z-40"
             >
-              <Sidebar onSignOut={handleSignOut} />
+              <Sidebar
+                onSignOut={handleSignOut}
+                onOpenRefundsPolicy={handleOpenRefundsPolicy}
+                onOpenPrivacyPolicy={handleOpenPrivacyPolicy}
+                onOpenTerms={handleOpenTerms}
+              />
             </motion.div>
           </>
         )}
@@ -230,6 +315,18 @@ export default function App() {
             }}
           />
         </div>
+      )}
+
+      {view === "refunds-policy" && (
+        <RefundsPolicy onBack={() => setView("home")} />
+      )}
+
+      {view === "privacy-policy" && (
+        <PrivacyPolicy onBack={() => setView("home")} />
+      )}
+
+      {view === "terms-policy" && (
+        <TermsPolicy onBack={() => setView("home")} />
       )}
 
       {view === "home" && (

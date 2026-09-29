@@ -8,10 +8,10 @@ export type AuthResult<T = null> =
   | { success: false; data: null; error: string };
 
 export type SignUpParams = {
-  displayName: string;
   email: string;
   phoneNumber: string;
   password: string;
+  termsAgreed: boolean;   // <-- KEPT
 };
 
 /* ---------- Helpers ---------- */
@@ -21,7 +21,6 @@ export type SignUpParams = {
  */
 function formatError(error: AuthError | null): string {
   if (!error) return "Unknown error";
-  // Optional: map common codes to nicer messages
   switch (error.message) {
     case "Invalid login credentials":
       return "Wrong email or password.";
@@ -37,27 +36,36 @@ function formatError(error: AuthError | null): string {
 /* ---------- Core API ---------- */
 
 /**
- * Sign up a new user with display name, email, phone number and password.
+ * Sign up a new user with email, phone number and password.
  *
  * The profile row in `public.profiles` is created automatically by the
- * `on_auth_user_created` trigger, which reads `display_name` and
- * `phone_number` from the user's metadata (passed via `options.data` below).
+ * `on_auth_user_created` trigger, which reads `phone_number` and
+ * `terms_agreed` from the user's metadata (passed via `options.data` below).
  */
 export async function signUp({
-  displayName,
   email,
   phoneNumber,
   password,
+  termsAgreed,   // <-- KEPT
 }: SignUpParams): Promise<
   AuthResult<{ user: User | null; session: Session | null }>
 > {
+  // never allow a signup without agreement
+  if (!termsAgreed) {
+    return {
+      success: false,
+      data: null,
+      error: "You must agree to the Terms and Policies to sign up.",
+    };
+  }
+
   const { data, error } = await supabase.auth.signUp({
     email,
     password,
     options: {
       data: {
-        display_name: displayName,
         phone_number: phoneNumber,
+        terms_agreed: termsAgreed,   // <-- KEPT
       },
     },
   });

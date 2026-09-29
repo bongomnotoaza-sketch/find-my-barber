@@ -1,0 +1,410 @@
+FIND MY BARBER
+
+BARBER TERMS AND CONDITIONS
+
+Effective Date: [INSERT DATE]
+Last Updated: [INSERT DATE]
+
+1. ACCEPTANCE OF THESE TERMS
+
+1.1 These Barber Terms and Conditions (“Terms”) govern the relationship between Find My Barber and any barber or service provider (“Barber”, “you” or “your”) who creates an account or offers services through the Find My Barber platform (“Platform”).
+
+1.2 By registering as a Barber, creating a service, accepting a Booking or otherwise using the Platform as a Barber, you agree to these Terms.
+
+1.3 These Terms must be read together with the Find My Barber Terms and Conditions, Refund, Cancellation and Dispute Policy, Privacy Policy and any other terms applicable to your use of the Platform.
+
+1.4 If you do not agree to these Terms, you may not use the Platform as a Barber.
+
+⸻
+
+2. FIND MY BARBER’S ROLE
+
+2.1 Find My Barber provides a technology platform that allows Customers to discover Barbers, view services, make Bookings and make payments.
+
+2.2 Find My Barber is not responsible for physically providing the haircut, grooming or other service offered by a Barber unless expressly stated otherwise.
+
+2.3 The Barber remains responsible for the actual provision of the service to the Customer.
+
+2.4 Find My Barber may facilitate communication, Booking, payment, cancellation, refunds, disputes and Barber payouts.
+
+2.5 The use of the Platform does not create an employment relationship, partnership or joint venture between Find My Barber and the Barber unless expressly agreed otherwise in writing.
+
+⸻
+
+3. BARBER ACCOUNT
+
+3.1 A Barber must provide accurate and current information when creating an account.
+
+3.2 Information may include:
+
+(a) name or business name;
+
+(b) contact information;
+
+(c) location;
+
+(d) services offered;
+
+(e) prices;
+
+(f) service duration;
+
+(g) operating hours; and
+
+(h) payment and payout information requested by Find My Barber or its payment providers.
+
+3.3 A Barber is responsible for maintaining the security of their account credentials.
+
+3.4 A Barber must not allow another person to use their account in a manner that misrepresents who is providing the service.
+
+3.5 Find My Barber may request information reasonably necessary to verify a Barber or comply with payment, legal, security or fraud-prevention requirements.
+
+⸻
+
+4. SERVICES AND SERVICE LISTINGS
+
+4.1 A Barber may create and publish services through the Platform.
+
+4.2 A Barber must accurately describe each service.
+
+4.3 A service listing should accurately state, where applicable:
+
+(a) the service name;
+
+(b) price;
+
+(c) estimated duration;
+
+(d) location;
+
+(e) relevant requirements or limitations; and
+
+(f) representative images.
+
+4.4 Images associated with a service must reasonably represent the service being offered.
+
+4.5 A Barber must not intentionally use images of another Barber’s work in a way that falsely represents the Barber’s own work.
+
+4.6 A Barber is responsible for ensuring that the services offered through the Platform comply with applicable laws and regulations.
+
+4.7 Find My Barber may remove or restrict a service listing that is misleading, unlawful, inappropriate or otherwise inconsistent with the Platform’s rules.
+
+⸻
+
+5. PRICING
+
+5.1 The Barber is responsible for setting the price of each service unless a different arrangement has been expressly agreed with Find My Barber.
+
+5.2 The price displayed to the Customer at the time of Booking forms the basis of the Booking.
+
+5.3 A Barber must not demand an additional mandatory payment from a Customer for the same booked service unless the additional amount was properly disclosed and agreed before the service.
+
+5.4 If a Barber wants to change the price of a service, the Barber must update the service listing before accepting new Bookings at the new price.
+
+5.5 Changes to the price of an existing confirmed Booking will not automatically change the amount payable for that Booking.
+
+⸻
+
+6. BOOKINGS
+
+6.1 A Barber must keep their availability reasonably accurate.
+
+6.2 When a Customer makes a confirmed Booking, the Barber is expected to provide the selected service at the scheduled time and location.
+
+6.3 A Barber must review their upcoming Bookings and maintain sufficient availability to fulfil accepted Bookings.
+
+6.4 A Barber must not intentionally accept overlapping Bookings that cannot reasonably be fulfilled.
+
+6.5 If a Barber becomes unable to fulfil a Booking, the Barber must cancel it through the Platform as soon as reasonably possible.
+
+⸻
+
+7. BARBER CANCELLATIONS
+
+7.1 A Barber should avoid cancelling confirmed Bookings except where reasonably necessary.
+
+7.2 Where a Barber cannot fulfil a Booking, the Barber must cancel through the Platform rather than simply failing to attend.
+
+7.3 Where a Barber cancels and the service is not provided, the Customer will generally receive the applicable refund in accordance with the Refund, Cancellation and Dispute Policy.
+
+7.4 Repeated or unreasonable cancellations may result in:
+
+(a) warnings;
+
+(b) temporary restrictions;
+
+(c) reduced visibility;
+
+(d) suspension; or
+
+(e) termination of the Barber account.
+
+7.5 Find My Barber may consider the circumstances of cancellations when taking action under this section.
+
+⸻
+
+8. ATTENDANCE AND NO-SHOWS
+
+8.1 A Barber must make reasonable efforts to be available for a confirmed Booking.
+
+8.2 If a Customer does not attend, the Barber should record the No-Show through the Platform where that functionality is available.
+
+8.3 A Barber must not falsely report a Customer as a No-Show.
+
+8.4 Where the Platform permits a No-Show charge, the applicable amount will be handled according to the Booking’s disclosed cancellation terms and applicable law.
+
+⸻
+
+9. PROVIDING THE SERVICE
+
+9.1 The Barber must provide the service substantially as described in the Booking.
+
+9.2 The Barber should communicate with the Customer where clarification is reasonably necessary before performing the service.
+
+9.3 A Barber must not intentionally substitute a materially different service without the Customer’s agreement.
+
+9.4 The Barber is responsible for maintaining reasonable standards of cleanliness, hygiene and safety applicable to the service and location.
+
+9.5 The Barber must comply with all laws and regulations applicable to their business and services.
+
+⸻
+
+10. CUSTOMER INTERACTIONS
+
+10.1 Barbers must treat Customers respectfully and professionally.
+
+10.2 A Barber must not discriminate unlawfully against a Customer.
+
+10.3 A Barber must not threaten, harass, intimidate or abuse a Customer.
+
+10.4 A Barber must not use Customer information obtained through Find My Barber for unrelated purposes or in a manner that violates applicable privacy laws or the Platform’s Privacy Policy.
+
+10.5 A Barber must not attempt to obtain or misuse a Customer’s payment credentials.
+
+⸻
+
+11. PAYMENT AND BARBER PAYOUTS
+
+11.1 Customers pay for Bookings through the payment methods provided by the Platform.
+
+11.2 A Barber must not require a Customer to pay separately for a service that has already been paid for through the Platform, except where an additional charge has been properly disclosed and agreed.
+
+11.3 Customer payments may be processed and settled through Find My Barber’s appointed payment service provider.
+
+11.4 Payment received by Find My Barber does not necessarily mean that the Barber is immediately eligible for payout.
+
+11.5 Subject to these Terms, the Barber becomes eligible for payout after the relevant service has been completed and the Booking has entered the applicable payout-eligible state.
+
+11.6 Find My Barber may deduct or account for applicable Platform fees, payment-processing charges, refunds, reversals, chargebacks or other amounts properly payable under the applicable terms.
+
+11.7 Barber payouts may be processed through a payment provider selected by Find My Barber.
+
+11.8 The Barber is responsible for providing accurate payout information.
+
+11.9 Find My Barber is not responsible for delays caused by incorrect payout information supplied by the Barber or by a Barber’s bank or payment provider.
+
+⸻
+
+12. COMPLETION OF BOOKINGS
+
+12.1 A Booking may be marked as completed after the Barber has provided the booked service.
+
+12.2 A Barber must not falsely mark a Booking as completed.
+
+12.3 A Barber must not mark a Booking as completed merely to trigger a payout where the service was not actually provided.
+
+12.4 Find My Barber may investigate suspicious or inconsistent completion records.
+
+12.5 A false completion may result in suspension, withholding of the relevant payout, termination of the account or other action permitted by applicable law.
+
+⸻
+
+13. REFUNDS AND CUSTOMER DISPUTES
+
+13.1 Customers may request refunds or submit Service Disputes in accordance with the Find My Barber Refund, Cancellation and Dispute Policy.
+
+13.2 A Barber agrees to cooperate reasonably with an investigation into a Booking dispute.
+
+13.3 Find My Barber may request information from the Barber concerning:
+
+(a) the service provided;
+
+(b) attendance;
+
+(c) Booking details;
+
+(d) communications with the Customer; and
+
+(e) any other information reasonably relevant to the dispute.
+
+13.4 Find My Barber may delay or suspend a payout associated with a genuine dispute while the matter is investigated, where permitted by the applicable payment arrangement.
+
+13.5 Where a refund is determined to be due to the Customer, Find My Barber may process the refund in accordance with its Refund, Cancellation and Dispute Policy.
+
+13.6 A Barber must not attempt to prevent a Customer from exercising a lawful right to submit a complaint or refund request.
+
+⸻
+
+14. CHARGEBACKS AND PAYMENT REVERSALS
+
+14.1 A Customer payment may be reversed, disputed or charged back by a bank, card issuer or payment provider.
+
+14.2 Where a payment associated with a Barber is reversed or charged back, Find My Barber may suspend the associated payout and investigate the transaction.
+
+14.3 Where permitted by applicable law and the applicable contractual arrangements, Find My Barber may recover amounts properly owed as a result of a payment reversal, fraudulent transaction or other payment adjustment.
+
+14.4 Find My Barber may request information from the Barber necessary to respond to a payment dispute.
+
+⸻
+
+15. PLATFORM FEES
+
+15.1 Find My Barber may charge fees for use of the Platform.
+
+15.2 Any applicable Barber fee or deduction will be disclosed to the Barber before it becomes applicable.
+
+15.3 Find My Barber may change its fees by providing notice in accordance with the applicable Terms.
+
+15.4 Unless otherwise agreed, a Barber is responsible for any taxes or other obligations applicable to amounts earned through the Platform.
+
+⸻
+
+16. TAX AND BUSINESS RESPONSIBILITIES
+
+16.1 The Barber is responsible for complying with tax, registration, licensing, employment and other legal obligations applicable to the Barber’s business.
+
+16.2 Find My Barber does not provide tax or accounting advice to Barbers.
+
+16.3 A Barber should maintain appropriate records of income received through the Platform and expenses incurred in operating their business.
+
+⸻
+
+17. CONTENT AND INTELLECTUAL PROPERTY
+
+17.1 A Barber retains ownership of content they lawfully own and upload to the Platform, subject to the rights granted in these Terms.
+
+17.2 By uploading photographs, service descriptions, logos or other content, the Barber grants Find My Barber a non-exclusive licence to display and use that content for operating, promoting and improving the Platform.
+
+17.3 The Barber represents that they have the necessary rights to upload and use the content provided to Find My Barber.
+
+17.4 A Barber must not upload content that infringes another person’s intellectual property, privacy or other legal rights.
+
+17.5 Find My Barber may remove content that violates these Terms or applicable law.
+
+⸻
+
+18. CUSTOMER INFORMATION AND PRIVACY
+
+18.1 Customer information obtained through the Platform must be handled in accordance with applicable privacy laws and the Find My Barber Privacy Policy.
+
+18.2 A Barber may use Customer information only for legitimate purposes connected with fulfilling the Booking and operating the Barber’s relationship with the Customer.
+
+18.3 A Barber must not sell, disclose or misuse Customer information obtained through Find My Barber.
+
+18.4 A Barber must take reasonable steps to protect Customer information in their possession.
+
+⸻
+
+19. PROHIBITED CONDUCT
+
+A Barber must not:
+
+19.1 use the Platform for unlawful activities;
+
+19.2 create fraudulent Bookings;
+
+19.3 manipulate ratings, reviews or Booking records;
+
+19.4 falsely report Customer No-Shows;
+
+19.5 falsely report completed services;
+
+19.6 use another person’s account;
+
+19.7 provide materially misleading service information;
+
+19.8 misuse Customer information;
+
+19.9 attempt to circumvent Platform payment or refund systems for the purpose of avoiding applicable fees or obligations;
+
+19.10 submit false information to Find My Barber or its payment providers; or
+
+19.11 engage in conduct that materially threatens the security, integrity or proper operation of the Platform.
+
+⸻
+
+20. ACCOUNT SUSPENSION AND TERMINATION
+
+20.1 Find My Barber may restrict, suspend or terminate a Barber account where reasonably necessary due to:
+
+(a) violation of these Terms;
+
+(b) fraudulent or abusive conduct;
+
+(c) repeated failure to fulfil Bookings;
+
+(d) repeated false completion or No-Show reports;
+
+(e) payment-related misconduct;
+
+(f) unlawful conduct; or
+
+(g) conduct that creates a material risk to Customers, Barbers or the Platform.
+
+20.2 Where reasonably appropriate, Find My Barber may provide the Barber with an opportunity to respond to allegations before taking final action.
+
+20.3 Termination does not automatically cancel legitimate financial obligations arising before termination.
+
+20.4 A Barber remains responsible for Bookings and obligations that arose before account termination to the extent required by applicable law and these Terms.
+
+⸻
+
+21. LIMITATION OF PLATFORM RESPONSIBILITY
+
+21.1 Find My Barber provides the Platform as a technology and booking service.
+
+21.2 Find My Barber does not guarantee a Barber any particular number of Customers, Bookings or income.
+
+21.3 Find My Barber is not responsible for losses resulting from circumstances outside its reasonable control, subject to applicable law.
+
+21.4 Nothing in these Terms excludes liability that cannot lawfully be excluded or limited.
+
+⸻
+
+22. COMPLAINTS AND SUPPORT
+
+22.1 Barbers may contact Find My Barber regarding account, Booking, payout or dispute matters through:
+
+Email: [INSERT SUPPORT EMAIL]
+Website: [INSERT WEBSITE]
+Address: [INSERT BUSINESS ADDRESS]
+
+22.2 A Barber should provide the relevant Booking or transaction reference when contacting support.
+
+⸻
+
+23. GOVERNING LAW
+
+23.1 These Terms are governed by the laws of the Republic of South Africa, unless applicable law requires otherwise.
+
+23.2 If any provision of these Terms is found to be invalid or unenforceable, the remaining provisions will continue to apply to the extent permitted by law.
+
+⸻
+
+24. CHANGES TO THESE TERMS
+
+24.1 Find My Barber may update these Terms where reasonably necessary to reflect changes to the Platform, payment systems, business operations or applicable law.
+
+24.2 The current version will be made available through the Platform.
+
+24.3 Where a material change affects the Barber’s existing obligations, Find My Barber will take reasonable steps to communicate the change.
+
+⸻
+
+25. ACCEPTANCE
+
+25.1 By creating or continuing to use a Barber account after being presented with these Terms, the Barber acknowledges that they have read and agreed to these Terms.
+
+25.2 Where the Platform requires an explicit acceptance checkbox or electronic acceptance, the Barber’s electronic acceptance will constitute acceptance of these Terms.
+
+END OF BARBER TERMS AND CONDITIONS
