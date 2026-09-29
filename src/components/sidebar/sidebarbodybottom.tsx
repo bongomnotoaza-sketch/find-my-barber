@@ -1,84 +1,143 @@
-import { useState } from 'react';
-import BarbersFollowing from './barbersfollowing';
-import BookingsList from './bookings';
-import Tickets from './tickets';
-import Refunds from './refunds';
-import AccountSettings from './accountsettings';
+import { useState } from "react";
+import BarbersFollowing from "./barbersfollowing";
+import BookingsList from "./bookings";
+import Tickets from "./tickets";
+import Refunds from "./refunds";
+import AccountSettings from "./accountsettings";
+import Earnings from "./income";
+import Bookings from "./barber_bookings";
+import Line from "./line";
+import Schedule from "./schedule";
+import Services from "./services";
+import Customers from "./customers";
+import Expenses from "./espenses";
 
-const toggleOptions = [
-  'bookings',
-  'tickets',
-  'refunds',
-  'reviews',
-  'barbers following',
-  'account settings',
-  'help',
-  'platform policy',
-  'refunds policy',
-  'privacy policy'
+/* ------------------------------------------------------------------ */
+/*  Option lists per role                                              */
+/* ------------------------------------------------------------------ */
+
+const USER_OPTIONS = [
+  "bookings",
+  "tickets",
+  "refunds",
+  "reviews",
+  "barbers following",
+  "account settings",
+  "help",
+  "platform policy",
+  "refunds policy",
+  "privacy policy",
 ] as const;
 
-type ToggleOption = typeof toggleOptions[number];
+const BARBER_OPTIONS = [
+  "line",
+  "bookings",
+  "services",
+  "customers",
+  "schedule",
+  "earnings",
+  "expenses",
+  "reviews",
+  "account settings",
+  "platform policy",
+  "refund policy",
+  "privacy policy",
+  "help",
+] as const;
+
+type UserOption = typeof USER_OPTIONS[number];
+type BarberOption = typeof BARBER_OPTIONS[number];
+type ToggleOption = UserOption | BarberOption;
+
+/* ------------------------------------------------------------------ */
+/*  Icons                                                              */
+/* ------------------------------------------------------------------ */
 
 const icons: Record<ToggleOption, string> = {
-  'bookings': 'fa-calendar-check',
-  'tickets': 'fa-ticket',
-  'refunds': 'fa-rotate-left',
-  'reviews': 'fa-star',
-  'barbers following': 'fa-user-group',
-  'account settings': 'fa-gear',
-  'help': 'fa-circle-question',
-  'platform policy': 'fa-building-shield',
-  'refunds policy': 'fa-file-invoice-dollar',
-  'privacy policy': 'fa-shield-halved'
+  // user
+  line: "fa-users",
+  bookings: "fa-calendar-check",
+  tickets: "fa-ticket",
+  refunds: "fa-rotate-left",
+  reviews: "fa-star",
+  "barbers following": "fa-user-group",
+  "account settings": "fa-gear",
+  help: "fa-circle-question",
+  "platform policy": "fa-building-shield",
+  "refunds policy": "fa-file-invoice-dollar",
+  "privacy policy": "fa-shield-halved",
+  // barber
+  services: "fa-scissors",
+  customers: "fa-users",
+  schedule: "fa-clock",
+  earnings: "fa-sack-dollar",
+  expenses: "fa-receipt",
+  "refund policy": "fa-file-invoice-dollar",
 };
 
 /* ------------------------------------------------------------------ */
 /*  Sub-view registry                                                  */
-/*  Add a row here to wire up a new sidebar page — nothing else needs */
-/*  to change (handleOptionClick reads from this automatically).       */
+/*  Add a row here to wire up a new sidebar page.                      */
 /* ------------------------------------------------------------------ */
-const subViews = {
-  'bookings': {
-    title: 'Bookings',
-    Component: BookingsList,
-  },
-  'tickets': {
-    title: 'Tickets',
-    Component: Tickets,
-  },
-  'refunds': {
-    title: 'Refunds',
-    Component: Refunds,
-  },
-  'barbers following': {
-    title: 'Barbers Following',
-    Component: BarbersFollowing,
-  },
-  'account settings': {
-    title: 'Account Settings',
-    Component: AccountSettings,
-  },
+
+const userSubViews = {
+  bookings: { title: "Bookings", Component: BookingsList },
+  tickets: { title: "Tickets", Component: Tickets },
+  refunds: { title: "Refunds", Component: Refunds },
+  "barbers following": { title: "Barbers Following", Component: BarbersFollowing },
+  "account settings": { title: "Account Settings", Component: AccountSettings },
 } as const;
 
-type SidebarView = 'menu' | keyof typeof subViews;
+const barberSubViews = {
+  bookings: { title: "Bookings", Component: Bookings },
+  "account settings": { title: "Account Settings", Component: AccountSettings },
+  earnings: { title: "Earnings", Component: Earnings },
+  line: { title: "Line", Component: Line },
+  schedule: { title:"Schedule", Component: Schedule },
+  services: { title:"Services", Component: Services },
+  customers: { title:"Customers", Component: Customers},
+  expenses: { title:"Expenses", Component: Expenses }
 
-/* ---- CHANGED: added onOpenRefundsPolicy to props ---- */
+  // TODO: wire these up when the components exist:
+  // services: { title: "Services", Component: ServicesList },
+  // customers: { title: "Customers", Component: CustomersList },
+  // schedule: { title: "Schedule", Component: ScheduleView },
+  // earnings: { title: "Earnings", Component: EarningsView },
+  // expenses: { title: "Expenses", Component: ExpensesView },
+  // reviews: { title: "Reviews", Component: ReviewsList },
+} as const;
+
+type UserSubViewKey = keyof typeof userSubViews;
+type BarberSubViewKey = keyof typeof barberSubViews;
+type SidebarView =
+  | "menu"
+  | { kind: "user"; key: UserSubViewKey }
+  | { kind: "barber"; key: BarberSubViewKey };
+
+/* ------------------------------------------------------------------ */
+/*  Props                                                              */
+/* ------------------------------------------------------------------ */
+
 type SidebarBodyBottomProps = {
+  role?: "user" | "barber";
   onSignOut: () => void | Promise<void>;
   onOpenRefundsPolicy: () => void;
-  onOpenPrivacyPolicy: () => void; 
+  onOpenPrivacyPolicy: () => void;
   onOpenTerms: () => void;
 };
 
 export default function SidebarBodyBottom({
+  role = "user",
   onSignOut,
-  onOpenRefundsPolicy,   // <-- CHANGED: destructured new prop
+  onOpenRefundsPolicy,
   onOpenPrivacyPolicy,
-  onOpenTerms,     
+  onOpenTerms,
 }: SidebarBodyBottomProps) {
   const [pending, setPending] = useState(false);
-  const [view, setView] = useState<SidebarView>('menu');
+  const [view, setView] = useState<SidebarView>("menu");
+
+  const isBarber = role === "barber";
+  const options: readonly ToggleOption[] = isBarber ? BARBER_OPTIONS : USER_OPTIONS;
 
   const handleSignOut = async () => {
     if (pending) return;
@@ -91,36 +150,43 @@ export default function SidebarBodyBottom({
   };
 
   const handleOptionClick = (option: ToggleOption) => {
-    /* ---- CHANGED: refunds policy hands off to the main screen ---- */
-    if (option === 'refunds policy') {
+    // Policy handoffs — same for both roles
+    if (option === "refunds policy" || option === "refund policy") {
       onOpenRefundsPolicy();
       return;
     }
-    if (option === 'privacy policy') {
+    if (option === "privacy policy") {
       onOpenPrivacyPolicy();
       return;
-       
     }
-    if (option === 'platform policy'){
+    if (option === "platform policy") {
       onOpenTerms();
       return;
     }
 
-    // If this option maps to a registered sub-view, show it.
-    if (option in subViews) {
-      setView(option as keyof typeof subViews);
-      return;
+    // Sub-view routing by role
+    if (isBarber) {
+      if (option in barberSubViews) {
+        setView({ kind: "barber", key: option as BarberSubViewKey });
+        return;
+      }
+    } else {
+      if (option in userSubViews) {
+        setView({ kind: "user", key: option as UserSubViewKey });
+        return;
+      }
     }
-    // ...handle other options here (navigate, open modal, etc.)
+
+    // Everything else is a no-op for now.
   };
 
   return (
     <div className="flex flex-col flex-1 overflow-hidden">
-      {view === 'menu' ? (
+      {view === "menu" ? (
         <>
           {/* Scrollable toggle options */}
           <div className="flex flex-col gap-1 p-2 overflow-y-auto flex-1">
-            {toggleOptions.map((option) => (
+            {options.map((option) => (
               <button
                 key={option}
                 type="button"
@@ -153,25 +219,34 @@ export default function SidebarBodyBottom({
               <div className="flex items-center justify-center text-white font-sans">
                 <span
                   className={`fa-solid ${
-                    pending ? 'fa-spinner fa-spin' : 'fa-right-from-bracket'
+                    pending ? "fa-spinner fa-spin" : "fa-right-from-bracket"
                   }`}
                 />
               </div>
               <div className="flex items-center justify-start text-white font-medium font-sans">
-                {pending ? 'Signing out…' : 'Sign Out'}
+                {pending ? "Signing out…" : "Sign Out"}
               </div>
             </button>
           </div>
         </>
       ) : (
         <SidebarSubView
-          title={subViews[view].title}
-          onBack={() => setView('menu')}
+          title={
+            view.kind === "user"
+              ? userSubViews[view.key].title
+              : barberSubViews[view.key].title
+          }
+          onBack={() => setView("menu")}
         >
-          {(() => {
-            const { Component } = subViews[view];
-            return <Component />;
-          })()}
+          {view.kind === "user"
+            ? (() => {
+                const { Component } = userSubViews[view.key];
+                return <Component />;
+              })()
+            : (() => {
+                const { Component } = barberSubViews[view.key];
+                return <Component />;
+              })()}
         </SidebarSubView>
       )}
     </div>
@@ -181,6 +256,7 @@ export default function SidebarBodyBottom({
 /* ------------------------------------------------------------------ */
 /*  Shared shell for every sub-view: back button + title + scroll area */
 /* ------------------------------------------------------------------ */
+
 type SidebarSubViewProps = {
   title: string;
   onBack: () => void;

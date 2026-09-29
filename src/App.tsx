@@ -2,9 +2,11 @@ import { useState, useEffect } from "react";
 import type { User } from "@supabase/supabase-js";
 import { AnimatePresence, motion } from "motion/react";
 import { Search } from "lucide-react";
-import { getCurrentUser, onAuthStateChange, signOut } from "./lib/auth"; // adjust path
-import { supabase } from "./lib/superbase"; // adjust path — NEW
-import { updateProfile } from "./lib/profiles"; // adjust path — NEW
+import { getCurrentUser, onAuthStateChange, signOut } from "./lib/auth";
+import { supabase } from "./lib/superbase";
+import { updateProfile } from "./lib/profiles";
+import { saveBarberProfile } from "./lib/barber_profiles";
+import { useIsBarber } from "./lib/useIsBarber"; // NEW
 import BookPopUp from "./components/mainarea/bookpopup";
 import Description from "./components/mainarea/description";
 import AppFooter from "./components/mainarea/footer";
@@ -17,7 +19,8 @@ import CommentsPopUp from "./components/mainarea/comments";
 import Login from "./components/mainarea/loginpage";
 import Sidebar from "./components/sidebar/sidebar";
 import SignUp from "./components/mainarea/signup";
-import ProfileSetup from "./components/sidebar/set_profile"; // adjust path — NEW
+import ProfileSetup from "./components/sidebar/set_profile";
+import BarberProfileSetup from "./components/sidebar/barber_set_profile";
 import RefundsPolicy from "./components/mainarea/refundspolicy";
 import PrivacyPolicy from "./components/mainarea/privacypolicys";
 import TermsPolicy from "./components/mainarea/termspolicys";
@@ -64,14 +67,17 @@ type View =
   | "terms-policy";
 
 type Feed = "barbers" | "general";
+type Role = "user" | "barber";
 
 export default function App() {
   const [user, setUser] = useState<User | null>(null);
   const [checkingSession, setCheckingSession] = useState(true);
 
-  // NEW: profile setup gating
+  // profile setup gating
   const [showProfileSetup, setShowProfileSetup] = useState(false);
+  const [showBarberSetup, setShowBarberSetup] = useState(false);
   const [checkingProfile, setCheckingProfile] = useState(true);
+  const [pendingRole, setPendingRole] = useState<Role>("user");
 
   const [view, setView] = useState<View>("home");
   const [activeFeed, setActiveFeed] = useState<Feed>("barbers");
@@ -85,6 +91,9 @@ export default function App() {
   );
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
 
+  // NEW: role detection for sidebar
+  const isBarber = useIsBarber(user?.id);
+
   // Check for an existing session on mount
   useEffect(() => {
     getCurrentUser().then((result) => {
@@ -94,7 +103,6 @@ export default function App() {
       setCheckingSession(false);
     });
 
-    // Keep state in sync with sign-in/sign-out elsewhere (token refresh, etc.)
     const unsubscribe = onAuthStateChange((u) => {
       setUser(u);
     });
@@ -102,7 +110,8 @@ export default function App() {
     return unsubscribe;
   }, []);
 
-  // NEW: whenever we have a user, check if their profile is complete
+  // Whenever we have a user (or pendingRole changes), decide which setup
+  // screen — if any — to show.
   useEffect(() => {
     if (!user) {
       setCheckingProfile(false);
@@ -111,36 +120,57 @@ export default function App() {
 
     setCheckingProfile(true);
 
-    supabase
-      .from("profiles")
-      .select("display_name")
-      .eq("id", user.id)
-      .single()
-      .then(({ data, error }) => {
-        // If no row / no display_name yet → needs setup
-        if (error || !data?.display_name) {
-          setShowProfileSetup(true);
-        } else {
+    (async () => {
+      // 1. Is the base profile complete?
+      const { data: profile, error: profileErr } = await supabase
+        .from("profiles")
+        .select("display_name")
+        .eq("id", user.id)
+        .single();
+
+      const needsProfile = profileErr || !profile?.display_name;
+
+      if (needsProfile) {
+        if (pendingRole === "barber") {
+          setShowBarberSetup(true);
           setShowProfileSetup(false);
+        } else {
+          setShowProfileSetup(true);
+          setShowBarberSetup(false);
         }
         setCheckingProfile(false);
-      });
-  }, [user]);
+        return;
+      }
 
-  /* -----------------------------------------------------------
-     Home popup "Book" → go to barber screen with the service
-     already selected. The user then picks a date there.
-  ----------------------------------------------------------- */
+      // 2. Base profile is complete → is this a barber account?
+      const { data: barber } = await supabase
+        .from("barber_profiles")
+        .select("id")
+        .eq("id", user.id)
+        .maybeSingle();
+
+      if (barber) {
+        setShowBarberSetup(false);
+        setShowProfileSetup(false);
+      } else if (pendingRole === "barber") {
+        setShowBarberSetup(true);
+        setShowProfileSetup(false);
+      } else {
+        setShowProfileSetup(false);
+        setShowBarberSetup(false);
+      }
+
+      setCheckingProfile(false);
+    })();
+  }, [user, pendingRole]);
+
   const handleBook = () => {
     if (selectedIndex === undefined) return;
     setShowBookPopup(false);
-    setSelectedDate(undefined); // no date chosen yet — clear any stale value
+    setSelectedDate(undefined);
     setView("barber");
   };
 
-  /* -----------------------------------------------------------
-     Barber screen "Book" → go to order summary as normal
-  ----------------------------------------------------------- */
   const handleBarberBook = (service: Service, date: Date) => {
     const index = defaultServices.findIndex((s) => s.name === service.name);
     setSelectedIndex(index >= 0 ? index : undefined);
@@ -161,8 +191,6 @@ export default function App() {
       console.error("Sign out failed:", result.error);
       return;
     }
-    // Close the sidebar; onAuthStateChange will set `user` to null,
-    // which sends the app back to the <Login /> screen automatically.
     setShowSidebar(false);
   };
 
@@ -195,7 +223,7 @@ export default function App() {
   if (checkingSession || (user && checkingProfile)) {
     return (
       <div className="min-h-screen bg-black flex items-center justify-center">
-        {/* simple splash while we check session / profile */}
+        {/* splash */}
       </div>
     );
   }
@@ -205,7 +233,10 @@ export default function App() {
       return (
         <SignUp
           onClose={() => setShowSignUp(false)}
-          onSignUpSuccess={() => setShowSignUp(false)}
+          onSignUpSuccess={(role) => {
+            setPendingRole(role);
+            setShowSignUp(false);
+          }}
         />
       );
     }
@@ -216,11 +247,9 @@ export default function App() {
         onSignUpPress={() => setShowSignUp(true)}
       />
     );
-    // onLoginSuccess can stay a no-op — onAuthStateChange above will
-    // pick up the new session and set `user` for us automatically.
   }
 
-  // NEW: signed in but profile not set up yet
+  // USER profile setup
   if (showProfileSetup) {
     return (
       <ProfileSetup
@@ -234,10 +263,59 @@ export default function App() {
 
           if (!result.success) {
             console.error("Profile setup failed:", result.error);
-            return; // keep them on the screen
+            return;
           }
 
           setShowProfileSetup(false);
+        }}
+        onClose={async () => {
+          await signOut();
+          setShowProfileSetup(false);
+        }}
+      />
+    );
+  }
+
+  // BARBER profile setup
+  if (showBarberSetup) {
+    return (
+      <BarberProfileSetup
+        onContinue={async (details) => {
+          const profileResult = await updateProfile({
+            displayName: details.displayName,
+            bio: details.bio,
+            avatarFile:
+              details.avatar.type === "upload" ? details.avatar.file : null,
+          });
+
+          if (!profileResult.success) {
+            console.error("Profile setup failed:", profileResult.error);
+            return;
+          }
+
+          const barberResult = await saveBarberProfile({
+            shop_name: details.barberProfile.shopName,
+            address: details.barberProfile.address,
+            account_number: details.barberProfile.accountNumber,
+            account_holder: details.barberProfile.accountHolder,
+            whatsapp: details.barberProfile.whatsapp,
+            phone: details.barberProfile.phone,
+            email: details.barberProfile.email,
+            instagram: details.barberProfile.instagram,
+            facebook: details.barberProfile.facebook,
+            twitter: details.barberProfile.twitter,
+          });
+
+          if (!barberResult.success) {
+            console.error("Barber profile save failed:", barberResult.error);
+            return;
+          }
+
+          setShowBarberSetup(false);
+        }}
+        onClose={async () => {
+          await signOut();
+          setShowBarberSetup(false);
         }}
       />
     );
@@ -252,11 +330,9 @@ export default function App() {
         playing={view === "home"}
       />
 
-      {/* Sidebar — slides in over everything when open */}
       <AnimatePresence>
         {showSidebar && (
           <>
-            {/* Backdrop */}
             <motion.div
               key="sidebar-backdrop"
               initial={{ opacity: 0 }}
@@ -266,7 +342,6 @@ export default function App() {
               onClick={() => setShowSidebar(false)}
               className="fixed inset-0 z-30 bg-black/50"
             />
-            {/* Sidebar panel */}
             <motion.div
               key="sidebar-panel"
               initial={{ x: "-100%" }}
@@ -276,6 +351,7 @@ export default function App() {
               className="fixed inset-y-0 left-0 z-40"
             >
               <Sidebar
+                role={isBarber ? "barber" : "user"}   // NEW
                 onSignOut={handleSignOut}
                 onOpenRefundsPolicy={handleOpenRefundsPolicy}
                 onOpenPrivacyPolicy={handleOpenPrivacyPolicy}
@@ -288,6 +364,7 @@ export default function App() {
 
       {view === "barber" && (
         <BarberScreen
+          isBarber={!!isBarber}  
           onBack={() => setView("home")}
           onBook={handleBarberBook}
           initialServiceIndex={selectedIndex}
@@ -331,14 +408,11 @@ export default function App() {
 
       {view === "home" && (
         <div className="relative h-dvh w-full overflow-hidden bg-zinc-950">
-          {/* Background image carousel — fills entire screen */}
           <div className="absolute inset-0">
-            <MainImage />
+            <MainImage transition="zoom" />
           </div>
 
-          {/* Top bar: Search icon (left) + centered feed tabs */}
           <div className="absolute inset-x-0 top-3 z-20 h-10">
-            {/* Search icon — pinned left */}
             <motion.button
               type="button"
               aria-label="Search"
@@ -353,7 +427,6 @@ export default function App() {
               />
             </motion.button>
 
-            {/* Feed tabs — centered on screen, evenly spaced */}
             <div className="flex h-full items-center justify-center gap-10">
               {(["barbers", "general"] as const).map((tab) => {
                 const isActive = activeFeed === tab;
@@ -396,7 +469,6 @@ export default function App() {
               })}
             </div>
 
-            {/* Shared SVG gradient defs */}
             <svg width="0" height="0" className="absolute">
               <defs>
                 <linearGradient
@@ -414,7 +486,6 @@ export default function App() {
             </svg>
           </div>
 
-          {/* Right-side action rail */}
           <MainNav
             likes={120}
             comments={comments.length}
@@ -424,7 +495,6 @@ export default function App() {
             onCommentsPress={() => setShowComments(true)}
           />
 
-          {/* Bottom stack: Description → Footer, floats above image */}
           <div className="absolute bottom-0 left-0 right-0 z-10 flex flex-col">
             <Description
               username="Fresh Cuts"

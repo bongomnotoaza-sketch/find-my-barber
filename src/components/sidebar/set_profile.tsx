@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { Camera, Check } from "lucide-react";
+import { Camera, Check, X } from "lucide-react";
 import { motion } from "motion/react";
 
 type ProfileSetupProps = {
@@ -13,6 +13,8 @@ type ProfileSetupProps = {
       file?: File;
     };
   }) => void;
+  // NEW: optional close handler
+  onClose?: () => void;
 };
 
 const avatarEmojis = [
@@ -53,6 +55,7 @@ const defaultAvatars = avatarEmojis.map((emoji, index) => ({
 
 export default function ProfileSetup({
   onContinue,
+  onClose, // NEW
 }: ProfileSetupProps) {
   const [selectedAvatar, setSelectedAvatar] = useState(0);
   const [uploadedImage, setUploadedImage] = useState<string | null>(
@@ -112,7 +115,7 @@ export default function ProfileSetup({
   return (
     <div className="min-h-dvh bg-zinc-950 text-white flex flex-col">
       {/* Header */}
-      <div className="px-5 pt-8 pb-4">
+      <div className="relative px-5 pt-8 pb-4">
         <h1 className="text-2xl font-bold">
           Set up your profile
         </h1>
@@ -120,6 +123,18 @@ export default function ProfileSetup({
         <p className="mt-1 text-sm text-white/50">
           Add a few details so people know who you are.
         </p>
+
+        {/* NEW: Close button */}
+        {onClose && (
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close"
+            className="absolute top-6 right-5 h-10 w-10 rounded-full flex items-center justify-center text-white/60 hover:text-white hover:bg-white/10 transition"
+          >
+            <X size={20} />
+          </button>
+        )}
       </div>
 
       {/* Main */}

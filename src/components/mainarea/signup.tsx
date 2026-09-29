@@ -1,15 +1,15 @@
 import { useState } from "react";
-import { signUp } from "../../lib/signup"; // adjust path to wherever signup.ts lives
-import RefundsPolicy from "./refundspolicy";   // <-- ADDED
-import PrivacyPolicy from "./privacypolicys";   // <-- ADDED
-import TermsPolicy from "./termspolicys";       // <-- ADDED
+import { signUp } from "../../lib/signup"; // adjust path
+import RefundsPolicy from "./refundspolicy";
+import PrivacyPolicy from "./privacypolicys";
+import TermsPolicy from "./termspolicys";
 
 type SignUpProps = {
   onClose: () => void;
-  onSignUpSuccess: () => void;
+  // NEW: pass which kind of account they signed up as
+  onSignUpSuccess: (role: "user" | "barber") => void;
 };
 
-// <-- ADDED: which policy (if any) is open inside signup
 type PolicyView = "none" | "terms" | "privacy" | "refunds";
 
 export default function SignUp({ onClose, onSignUpSuccess }: SignUpProps) {
@@ -22,22 +22,22 @@ export default function SignUp({ onClose, onSignUpSuccess }: SignUpProps) {
   const [message, setMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  // <-- ADDED: agreement state + which policy is open
   const [agreed, setAgreed] = useState(false);
   const [policyView, setPolicyView] = useState<PolicyView>("none");
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (
+    e: React.FormEvent | React.MouseEvent,
+    role: "user" | "barber" = "user"
+  ) => {
     e.preventDefault();
     setError(null);
     setMessage(null);
 
-    // <-- ADDED: block submission until terms are accepted
     if (!agreed) {
       setError("Please agree to the Terms and Policies to continue.");
       return;
     }
 
-    // Basic client-side validation
     if (password !== confirmPassword) {
       setError("Passwords do not match.");
       return;
@@ -53,7 +53,7 @@ export default function SignUp({ onClose, onSignUpSuccess }: SignUpProps) {
       email,
       phoneNumber: phone,
       password,
-      termsAgreed: agreed,   // <-- ADDED
+      termsAgreed: agreed,
     });
 
     setLoading(false);
@@ -70,10 +70,9 @@ export default function SignUp({ onClose, onSignUpSuccess }: SignUpProps) {
     }
 
     // Otherwise the user is signed in immediately.
-    onSignUpSuccess();
+    onSignUpSuccess(role);
   };
 
-  // <-- ADDED: render a policy screen instead of the form
   if (policyView !== "none") {
     const back = () => setPolicyView("none");
 
@@ -124,7 +123,6 @@ export default function SignUp({ onClose, onSignUpSuccess }: SignUpProps) {
       </button>
 
       <div className="w-full max-w-md">
-
         {/* Logo */}
         <div className="flex justify-center mb-6">
           <img
@@ -146,8 +144,10 @@ export default function SignUp({ onClose, onSignUpSuccess }: SignUpProps) {
         </div>
 
         {/* Form */}
-        <form className="space-y-4" onSubmit={handleSubmit}>
-
+        <form
+          className="space-y-4"
+          onSubmit={(e) => handleSubmit(e, "user")}
+        >
           {/* Email */}
           <div>
             <label
@@ -284,7 +284,7 @@ export default function SignUp({ onClose, onSignUpSuccess }: SignUpProps) {
             />
           </div>
 
-          {/* <-- ADDED: agree-to-terms checkbox with policy links --> */}
+          {/* Agree to terms */}
           <label className="flex items-start gap-3 pt-2 cursor-pointer select-none">
             <input
               type="checkbox"
@@ -346,33 +346,63 @@ export default function SignUp({ onClose, onSignUpSuccess }: SignUpProps) {
             </p>
           )}
 
-          {/* Sign Up */}
-          <button
-            type="submit"
-            disabled={loading || !agreed}
-            className="
-              w-full
-              h-12
-              rounded-xl
-              mt-3
-              font-semibold
-              text-white
-              bg-gradient-to-r
-              from-orange-500
-              via-pink-500
-              to-red-500
-              hover:opacity-90
-              active:scale-[0.99]
-              transition
-              shadow-lg
-              shadow-pink-500/10
-              disabled:opacity-60
-              disabled:active:scale-100
-              disabled:cursor-not-allowed
-            "
-          >
-            {loading ? "Creating account..." : "Create account"}
-          </button>
+          {/* Split sign-up buttons */}
+          <div className="flex flex-col gap-3 mt-3">
+            {/* Barber button — submits with role="barber" */}
+            <button
+              type="button"
+              onClick={(e) => handleSubmit(e, "barber")}
+              disabled={loading || !agreed}
+              className="
+                w-full
+                h-12
+                rounded-xl
+                font-semibold
+                text-white
+                bg-gradient-to-r
+                from-orange-500
+                via-pink-500
+                to-red-500
+                hover:opacity-90
+                active:scale-[0.99]
+                transition
+                shadow-lg
+                shadow-pink-500/10
+                disabled:opacity-60
+                disabled:active:scale-100
+                disabled:cursor-not-allowed
+              "
+            >
+              {loading ? "Creating account..." : "Sign up as Barber"}
+            </button>
+
+            {/* User button — submits with role="user" via the form's onSubmit */}
+            <button
+              type="submit"
+              disabled={loading || !agreed}
+              className="
+                w-full
+                h-12
+                rounded-xl
+                font-semibold
+                text-white
+                bg-gradient-to-r
+                from-orange-500
+                via-pink-500
+                to-red-500
+                hover:opacity-90
+                active:scale-[0.99]
+                transition
+                shadow-lg
+                shadow-pink-500/10
+                disabled:opacity-60
+                disabled:active:scale-100
+                disabled:cursor-not-allowed
+              "
+            >
+              {loading ? "Creating account..." : "Sign up as User"}
+            </button>
+          </div>
         </form>
       </div>
     </div>
