@@ -77,7 +77,6 @@ const icons: Record<ToggleOption, string> = {
 
 /* ------------------------------------------------------------------ */
 /*  Sub-view registry                                                  */
-/*  Add a row here to wire up a new sidebar page.                      */
 /* ------------------------------------------------------------------ */
 
 const userSubViews = {
@@ -89,22 +88,14 @@ const userSubViews = {
 } as const;
 
 const barberSubViews = {
-  bookings: { title: "Bookings", Component: Bookings },
-  "account settings": { title: "Account Settings", Component: AccountSettings },
-  earnings: { title: "Earnings", Component: Earnings },
   line: { title: "Line", Component: Line },
-  schedule: { title:"Schedule", Component: Schedule },
-  services: { title:"Services", Component: Services },
-  customers: { title:"Customers", Component: Customers},
-  expenses: { title:"Expenses", Component: Expenses }
-
-  // TODO: wire these up when the components exist:
-  // services: { title: "Services", Component: ServicesList },
-  // customers: { title: "Customers", Component: CustomersList },
-  // schedule: { title: "Schedule", Component: ScheduleView },
-  // earnings: { title: "Earnings", Component: EarningsView },
-  // expenses: { title: "Expenses", Component: ExpensesView },
-  // reviews: { title: "Reviews", Component: ReviewsList },
+  bookings: { title: "Bookings", Component: Bookings },
+  services: { title: "Services", Component: Services },
+  customers: { title: "Customers", Component: Customers },
+  schedule: { title: "Schedule", Component: Schedule },
+  earnings: { title: "Earnings", Component: Earnings },
+  expenses: { title: "Expenses", Component: Expenses },
+  "account settings": { title: "Account Settings", Component: AccountSettings },
 } as const;
 
 type UserSubViewKey = keyof typeof userSubViews;
@@ -150,7 +141,6 @@ export default function SidebarBodyBottom({
   };
 
   const handleOptionClick = (option: ToggleOption) => {
-    // Policy handoffs — same for both roles
     if (option === "refunds policy" || option === "refund policy") {
       onOpenRefundsPolicy();
       return;
@@ -164,7 +154,6 @@ export default function SidebarBodyBottom({
       return;
     }
 
-    // Sub-view routing by role
     if (isBarber) {
       if (option in barberSubViews) {
         setView({ kind: "barber", key: option as BarberSubViewKey });
@@ -176,22 +165,21 @@ export default function SidebarBodyBottom({
         return;
       }
     }
-
-    // Everything else is a no-op for now.
   };
 
   return (
-    <div className="flex flex-col flex-1 overflow-hidden">
+    // CHANGED: added min-h-0 so this flex container can actually shrink
+    <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
       {view === "menu" ? (
         <>
-          {/* Scrollable toggle options */}
-          <div className="flex flex-col gap-1 p-2 overflow-y-auto flex-1">
+          {/* Scrollable toggle options — CHANGED: added min-h-0 */}
+          <div className="flex flex-col gap-1 p-2 overflow-y-auto flex-1 min-h-0">
             {options.map((option) => (
               <button
                 key={option}
                 type="button"
                 onClick={() => handleOptionClick(option)}
-                className="w-full h-12 md:h-14 grid grid-cols-[20%_80%] overflow-hidden
+                className="w-full h-12 md:h-14 shrink-0 grid grid-cols-[20%_80%] overflow-hidden
                   transition-transform duration-300 ease-out hover:translate-x-2
                   cursor-pointer text-left"
               >
@@ -205,8 +193,8 @@ export default function SidebarBodyBottom({
             ))}
           </div>
 
-          {/* Sign out button pinned at bottom */}
-          <div className="p-2 border-t border-white/20">
+          {/* Sign out button pinned at bottom — CHANGED: added shrink-0 */}
+          <div className="p-2 border-t border-white/20 shrink-0">
             <button
               type="button"
               disabled={pending}
@@ -254,7 +242,7 @@ export default function SidebarBodyBottom({
 }
 
 /* ------------------------------------------------------------------ */
-/*  Shared shell for every sub-view: back button + title + scroll area */
+/*  Shared shell for every sub-view                                    */
 /* ------------------------------------------------------------------ */
 
 type SidebarSubViewProps = {
@@ -266,7 +254,6 @@ type SidebarSubViewProps = {
 function SidebarSubView({ title, onBack, children }: SidebarSubViewProps) {
   return (
     <>
-      {/* Header with back button */}
       <div className="flex items-center gap-2 p-2 border-b border-white/10 shrink-0">
         <button
           type="button"

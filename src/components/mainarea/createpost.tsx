@@ -1,171 +1,350 @@
-import { useRef, useState } from "react";
-import { ImagePlus, Music, X, Send } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import {
+  ChevronLeft,
+  ChevronRight,
+  ImagePlus,
+  Music,
+  Send,
+  X,
+} from "lucide-react";
+
+const MAX_IMAGES = 5;
+const MAX_SIZE_MB = 10;
+const MAX_SIZE_BYTES = MAX_SIZE_MB * 1024 * 1024;
+const ACCEPT = "image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif";
+
+export type Song = {
+  id: string;
+  title: string;
+  artist: string;
+};
+
+type Item = {
+  id: string;
+  file: File;
+  url: string;
+};
 
 type CreatePostProps = {
-  onPost?: (
-    images: File[],
-    song: string | null
-  ) => void | Promise<void>;
+  onPost?: (images: File[], song: Song | null) => void | Promise<void>;
 };
+
+// File.type is sometimes empty for HEIC, so fall back to the extension.
+const isAllowedImage = (file: File) =>
+  /^image\/(jpeg|png|webp|heic|heif)$/.test(file.type) ||
+  /\.(jpe?g|png|webp|heic|heif)$/i.test(file.name);
+
+const hasFiles = (event: React.DragEvent) =>
+  Array.from(event.dataTransfer.types).includes("Files");
 
 export default function CreatePost({ onPost }: CreatePostProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const [images, setImages] = useState<File[]>([]);
-  const [imagePreviews, setImagePreviews] = useState<string[]>([]);
-  const [song, setSong] = useState<string | null>(null);
+  const [items, setItems] = useState<Item[]>([]);
+  const [song, setSong] = useState<Song | null>(null);
   const [isPosting, setIsPosting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const MAX_IMAGES = 5;
+  const [isFileOver, setIsFileOver] = useState(false);
+  const [draggedId, setDraggedId] = useState<string | null>(null);
+  const [dropTargetId, setDropTargetId] = useState<string | null>(null);
 
-  const handleImageChange = (
-    event: React.ChangeEvent<HTMLInputElement>
-  ) => {
-    const files = Array.from(event.target.files || []);
+  // Release all object URLs on unmount.
+  const itemsRef = useRef(items);
+  itemsRef.current = items;
+  useEffect(() => {
+    return () => {
+      itemsRef.current.forEach((item) => URL.revokeObjectURL(item.url));
+    };
+  }, []);
 
-    if (!files.length) return;
+  const isFull = items.length >= MAX_IMAGES;
+  const openPicker = () => fileInputRef.current?.click();
 
-    const remainingSlots = MAX_IMAGES - images.length;
-    const selectedFiles = files.slice(0, remainingSlots);
+  /* ---------- Adding images ---------- */
 
-    const newPreviews = selectedFiles.map((file) =>
-      URL.createObjectURL(file)
-    );
+  const addFiles = (incoming: File[]) => {
+    if (!incoming.length || isPosting) return;
 
-    setImages((current) => [...current, ...selectedFiles]);
-    setImagePreviews((current) => [...current, ...newPreviews]);
+    const problems: string[] = [];
 
-    if (fileInputRef.current) {
-      fileInputRef.current.value = "";
+    const typeOk = incoming.filter(isAllowedImage);
+    if (typeOk.length < incoming.length) {
+      problems.push("Only JPEG, PNG, WebP, and HEIC images are supported.");
+    }
+
+    const sizeOk = typeOk.filter((file) => file.size <= MAX_SIZE_BYTES);
+    if (sizeOk.length < typeOk.length) {
+      problems.push(`Images must be under ${MAX_SIZE_MB} MB.`);
+    }
+
+    const slots = MAX_IMAGES - items.length;
+    const accepted = sizeOk.slice(0, slots);
+    if (sizeOk.length > slots) {
+      problems.push(
+        `You can add up to ${MAX_IMAGES} images. ${sizeOk.length - slots} skipped.`
+      );
+    }
+
+    setError(problems.length ? problems.join(" ") : null);
+
+    if (accepted.length) {
+      setItems((current) => [
+        ...current,
+        ...accepted.map((file) => ({
+          id: crypto.randomUUID(),
+          file,
+          url: URL.createObjectURL(file),
+        })),
+      ]);
     }
   };
 
-  const removeImage = (index: number) => {
-    URL.revokeObjectURL(imagePreviews[index]);
-
-    setImages((current) =>
-      current.filter((_, imageIndex) => imageIndex !== index)
-    );
-
-    setImagePreviews((current) =>
-      current.filter((_, imageIndex) => imageIndex !== index)
-    );
+  const handleInputChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    addFiles(Array.from(event.target.files || []));
+    event.target.value = "";
   };
 
-  const clearImages = () => {
-    imagePreviews.forEach((preview) => {
-      URL.revokeObjectURL(preview);
+  /* ---------- Removing and reordering ---------- */
+
+  const removeImage = (id: string) => {
+    if (isPosting) return;
+    const target = items.find((item) => item.id === id);
+    if (target) URL.revokeObjectURL(target.url);
+    setItems((current) => current.filter((item) => item.id !== id));
+    setError(null);
+  };
+
+  const moveImage = (from: number, to: number) => {
+    if (isPosting || from === to || to < 0 || to >= items.length) return;
+    setItems((current) => {
+      const next = [...current];
+      const [moved] = next.splice(from, 1);
+      next.splice(to, 0, moved);
+      return next;
     });
+  };
 
-    setImages([]);
-    setImagePreviews([]);
+  /* ---------- Drag and drop: files in ---------- */
 
-    if (fileInputRef.current) {
-      fileInputRef.current.value = "";
+  const handleZoneDragOver = (event: React.DragEvent) => {
+    if (!hasFiles(event)) return;
+    event.preventDefault();
+    if (!isPosting && !isFull) setIsFileOver(true);
+  };
+
+  const handleZoneDragLeave = (event: React.DragEvent) => {
+    if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
+      setIsFileOver(false);
     }
   };
+
+  const handleZoneDrop = (event: React.DragEvent) => {
+    if (!hasFiles(event)) return;
+    event.preventDefault();
+    setIsFileOver(false);
+    if (isFull) {
+      setError(`You can add up to ${MAX_IMAGES} images.`);
+      return;
+    }
+    addFiles(Array.from(event.dataTransfer.files));
+  };
+
+  /* ---------- Drag and drop: reordering tiles ---------- */
+
+  const endTileDrag = () => {
+    setDraggedId(null);
+    setDropTargetId(null);
+  };
+
+  const handleTileDrop = (event: React.DragEvent, targetId: string) => {
+    if (!draggedId) return;
+    event.preventDefault();
+    event.stopPropagation();
+    const from = items.findIndex((item) => item.id === draggedId);
+    const to = items.findIndex((item) => item.id === targetId);
+    moveImage(from, to);
+    endTileDrag();
+  };
+
+  /* ---------- Posting ---------- */
 
   const handlePost = async () => {
-    if (!images.length || isPosting) return;
+    if (!items.length || isPosting) return;
+
+    setError(null);
+    setIsPosting(true);
 
     try {
-      setIsPosting(true);
-
-      await onPost?.(images, song);
-
-      clearImages();
+      await onPost?.(
+        items.map((item) => item.file),
+        song
+      );
+      items.forEach((item) => URL.revokeObjectURL(item.url));
+      setItems([]);
       setSong(null);
+    } catch {
+      setError("Couldn't publish your post. Check your connection and try again.");
     } finally {
       setIsPosting(false);
     }
   };
 
+  /* ---------- Render ---------- */
+
+  const addTileClasses =
+    "flex flex-col items-center justify-center rounded-2xl border border-dashed transition disabled:cursor-not-allowed disabled:opacity-40";
+  const addTileIdle =
+    "border-white/20 bg-white/[0.03] text-white/50 hover:border-white/40 hover:bg-white/[0.05] hover:text-white";
+  const addTileActive = "border-white/60 bg-white/[0.08] text-white";
+
   return (
-    <div className="flex h-full w-full flex-col bg-zinc-950">
+    <div className="flex h-full min-h-0 w-full flex-col bg-zinc-950">
       {/* Header */}
       <div className="flex shrink-0 items-center justify-between border-b border-white/10 px-5 py-4">
         <div>
-          <h1 className="text-lg font-semibold text-white">
-            Create Post
-          </h1>
-
-          <p className="mt-0.5 text-sm text-white/50">
-            Share your latest work
-          </p>
+          <h1 className="text-lg font-semibold text-white">Create Post</h1>
+          <p className="mt-0.5 text-sm text-white/50">Share your latest work</p>
         </div>
 
-        {images.length > 0 && (
+        {items.length > 0 && (
           <span className="text-xs text-white/40">
-            {images.length}/{MAX_IMAGES} images
+            {items.length}/{MAX_IMAGES} images
           </span>
         )}
       </div>
 
       {/* Content */}
-      <div className="flex flex-1 flex-col overflow-y-auto p-5">
+      <div
+        className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain p-5"
+        onDragOver={handleZoneDragOver}
+        onDragLeave={handleZoneDragLeave}
+        onDrop={handleZoneDrop}
+      >
         {/* Images */}
         <div className="flex flex-1 items-center justify-center">
-          {images.length > 0 ? (
+          {items.length > 0 ? (
             <div className="w-full max-w-2xl">
-              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-                {imagePreviews.map((preview, index) => (
-                  <div
-                    key={preview}
-                    className="group relative aspect-square overflow-hidden rounded-2xl bg-black"
-                  >
-                    <img
-                      src={preview}
-                      alt={`Post image ${index + 1}`}
-                      className="h-full w-full object-cover"
-                    />
+              <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                {items.map((item, index) => {
+                  const isDragged = draggedId === item.id;
+                  const isTarget =
+                    dropTargetId === item.id && draggedId !== item.id;
 
-                    {/* Remove image */}
-                    <button
-                      type="button"
-                      onClick={() => removeImage(index)}
-                      className="absolute right-2 top-2 flex h-8 w-8 items-center justify-center rounded-full bg-black/70 text-white backdrop-blur-md transition hover:bg-black"
-                      aria-label={`Remove image ${index + 1}`}
+                  return (
+                    <li
+                      key={item.id}
+                      draggable={!isPosting && items.length > 1}
+                      onDragStart={(event) => {
+                        setDraggedId(item.id);
+                        event.dataTransfer.effectAllowed = "move";
+                        // Firefox needs data set for a drag to start.
+                        event.dataTransfer.setData("text/plain", item.id);
+                      }}
+                      onDragOver={(event) => {
+                        if (!draggedId) return;
+                        event.preventDefault();
+                        setDropTargetId(item.id);
+                      }}
+                      onDrop={(event) => handleTileDrop(event, item.id)}
+                      onDragEnd={endTileDrag}
+                      className={`group relative aspect-square overflow-hidden rounded-2xl bg-black transition ${
+                        isDragged ? "opacity-40" : ""
+                      } ${isTarget ? "ring-2 ring-white/70" : ""}`}
                     >
-                      <X size={16} />
-                    </button>
+                      <img
+                        src={item.url}
+                        alt={`Post image ${index + 1} of ${items.length}`}
+                        draggable={false}
+                        className="h-full w-full object-cover"
+                      />
 
-                    {/* Image number */}
-                    <div className="absolute bottom-2 left-2 rounded-full bg-black/60 px-2 py-1 text-[10px] font-medium text-white backdrop-blur-md">
-                      {index + 1}
-                    </div>
-                  </div>
-                ))}
+                      {/* Remove */}
+                      <button
+                        type="button"
+                        onClick={() => removeImage(item.id)}
+                        disabled={isPosting}
+                        className="absolute right-2 top-2 flex h-8 w-8 items-center justify-center rounded-full bg-black/70 text-white backdrop-blur-md transition hover:bg-black disabled:opacity-40"
+                        aria-label={`Remove image ${index + 1}`}
+                      >
+                        <X size={16} />
+                      </button>
+
+                      {/* Position */}
+                      <div className="absolute bottom-2 left-2 rounded-full bg-black/60 px-2 py-1 text-[10px] font-medium text-white backdrop-blur-md">
+                        {index === 0 ? "Cover" : index + 1}
+                      </div>
+
+                      {/* Reorder */}
+                      {items.length > 1 && (
+                        <div className="absolute bottom-2 right-2 flex gap-1 opacity-100 transition sm:opacity-0 sm:group-focus-within:opacity-100 sm:group-hover:opacity-100">
+                          <button
+                            type="button"
+                            onClick={() => moveImage(index, index - 1)}
+                            disabled={isPosting || index === 0}
+                            className="flex h-7 w-7 items-center justify-center rounded-full bg-black/70 text-white backdrop-blur-md transition hover:bg-black disabled:cursor-not-allowed disabled:opacity-30"
+                            aria-label={`Move image ${index + 1} earlier`}
+                          >
+                            <ChevronLeft size={16} />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => moveImage(index, index + 1)}
+                            disabled={isPosting || index === items.length - 1}
+                            className="flex h-7 w-7 items-center justify-center rounded-full bg-black/70 text-white backdrop-blur-md transition hover:bg-black disabled:cursor-not-allowed disabled:opacity-30"
+                            aria-label={`Move image ${index + 1} later`}
+                          >
+                            <ChevronRight size={16} />
+                          </button>
+                        </div>
+                      )}
+                    </li>
+                  );
+                })}
 
                 {/* Add image */}
-                {images.length < MAX_IMAGES && (
-                  <button
-                    type="button"
-                    onClick={() => fileInputRef.current?.click()}
-                    className="flex aspect-square flex-col items-center justify-center rounded-2xl border border-dashed border-white/20 bg-white/[0.03] text-white/50 transition hover:border-white/40 hover:bg-white/[0.05] hover:text-white"
-                  >
-                    <ImagePlus size={28} strokeWidth={1.5} />
-
-                    <span className="mt-2 text-xs">
-                      Add image
-                    </span>
-                  </button>
+                {!isFull && (
+                  <li>
+                    <button
+                      type="button"
+                      onClick={openPicker}
+                      disabled={isPosting}
+                      className={`${addTileClasses} aspect-square w-full ${
+                        isFileOver ? addTileActive : addTileIdle
+                      }`}
+                    >
+                      <ImagePlus size={28} strokeWidth={1.5} />
+                      <span className="mt-2 text-xs">
+                        {isFileOver ? "Drop to add" : "Add image"}
+                      </span>
+                    </button>
+                  </li>
                 )}
-              </div>
+              </ul>
+
+              {items.length > 1 && (
+                <p className="mt-3 text-xs text-white/40">
+                  Drag images or use the arrows to change their order. The first
+                  image is the cover.
+                </p>
+              )}
             </div>
           ) : (
             <button
               type="button"
-              onClick={() => fileInputRef.current?.click()}
-              className="flex aspect-square w-full max-w-md flex-col items-center justify-center rounded-2xl border border-dashed border-white/20 bg-white/[0.03] text-white/60 transition hover:border-white/40 hover:bg-white/[0.05] hover:text-white"
+              onClick={openPicker}
+              disabled={isPosting}
+              className={`${addTileClasses} aspect-square w-full max-w-md ${
+                isFileOver ? addTileActive : addTileIdle
+              }`}
             >
               <ImagePlus size={42} strokeWidth={1.5} />
-
               <span className="mt-4 text-sm font-medium">
-                Upload images
+                {isFileOver ? "Drop to add" : "Upload images"}
               </span>
-
               <span className="mt-1 text-xs text-white/40">
-                Add up to 5 images
+                Drag and drop or click. Up to {MAX_IMAGES} images, {MAX_SIZE_MB}{" "}
+                MB each.
               </span>
             </button>
           )}
@@ -174,73 +353,71 @@ export default function CreatePost({ onPost }: CreatePostProps) {
         <input
           ref={fileInputRef}
           type="file"
-          accept="image/jpeg,image/png,image/webp"
+          accept={ACCEPT}
           multiple
-          onChange={handleImageChange}
+          onChange={handleInputChange}
           className="hidden"
         />
 
         {/* Controls */}
         <div className="mt-6 space-y-3">
-          {/* Add Images */}
-          {images.length > 0 && images.length < MAX_IMAGES && (
+          {/* Song */}
+          <div className="flex w-full items-center rounded-xl border border-white/10 bg-white/[0.03] transition hover:bg-white/[0.06]">
             <button
               type="button"
-              onClick={() => fileInputRef.current?.click()}
-              className="flex w-full items-center gap-3 rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-left text-sm text-white transition hover:bg-white/[0.06]"
+              disabled={isPosting}
+              onClick={() => {
+                // Replace with your song picker later.
+                setSong(
+                  song ?? {
+                    id: "placeholder",
+                    title: "Selected Song",
+                    artist: "Unknown artist",
+                  }
+                );
+              }}
+              className="flex flex-1 items-center gap-3 px-4 py-3 text-left disabled:opacity-40"
             >
-              <ImagePlus size={19} />
-
-              <span>
-                Add images
-              </span>
-            </button>
-          )}
-
-          {/* Song */}
-          <button
-            type="button"
-            onClick={() => {
-              // Replace with your song picker later.
-              setSong(song ? null : "Selected Song");
-            }}
-            className="flex w-full items-center justify-between rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-left transition hover:bg-white/[0.06]"
-          >
-            <div className="flex items-center gap-3">
               <Music size={19} className="text-white/70" />
 
               <div>
                 <p className="text-sm font-medium text-white">
-                  {song || "Choose a song"}
+                  {song ? song.title : "Choose a song"}
                 </p>
-
                 <p className="text-xs text-white/40">
-                  Add music to your post
+                  {song ? song.artist : "Add music to your post"}
                 </p>
               </div>
-            </div>
+            </button>
 
             {song && (
-              <X
-                size={17}
-                className="text-white/50"
-                onClick={(event) => {
-                  event.stopPropagation();
-                  setSong(null);
-                }}
-              />
+              <button
+                type="button"
+                onClick={() => setSong(null)}
+                disabled={isPosting}
+                aria-label="Remove song"
+                className="p-3 text-white/50 transition hover:text-white disabled:opacity-40"
+              >
+                <X size={17} />
+              </button>
             )}
-          </button>
+          </div>
+
+          {/* Error */}
+          {error && (
+            <p role="alert" className="text-sm text-red-400">
+              {error}
+            </p>
+          )}
 
           {/* Post */}
           <button
             type="button"
-            disabled={!images.length || isPosting}
+            disabled={!items.length || isPosting}
             onClick={handlePost}
             className="flex w-full items-center justify-center gap-2 rounded-xl bg-white px-4 py-3 text-sm font-semibold text-black transition hover:bg-white/90 disabled:cursor-not-allowed disabled:opacity-30"
           >
             <Send size={18} />
-
             {isPosting ? "Posting..." : "Post"}
           </button>
         </div>
