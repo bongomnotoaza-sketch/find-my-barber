@@ -1,5 +1,6 @@
-
+import { useEffect, useState } from "react";
 import { motion } from "motion/react";
+import { supabase } from "../../lib/superbase";
 
 type ScheduleDay = {
   date: Date;
@@ -7,28 +8,53 @@ type ScheduleDay = {
   closed?: boolean;
 };
 
-type ScheduleProps = {
-  days?: ScheduleDay[];
+// Raw shape returned by the RPC
+type ScheduleRow = {
+  booking_date: string;
+  highest_ticket_index: number;
 };
 
-const createDefaultSchedule = (): ScheduleDay[] => {
-  const today = new Date();
+export default function Schedule() {
+  const [days, setDays] = useState<ScheduleDay[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  return Array.from({ length: 7 }, (_, index) => {
-    const date = new Date(today);
-    date.setDate(today.getDate() + index);
+  useEffect(() => {
+    const fetchSchedule = async () => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
 
-    return {
-      date,
-      bookings: [8, 5, 11, 0, 7, 4, 9][index],
-      closed: false,
+      if (!user) {
+        setError("No user logged in");
+        setLoading(false);
+        return;
+      }
+
+      const { data, error } = await supabase.rpc(
+        "get_barber_daily_ticket_count",
+        { p_barber_id: user.id }
+      );
+
+      if (error) {
+        console.error(error);
+        setError(error.message);
+      } else {
+        const mapped: ScheduleDay[] = ((data ?? []) as ScheduleRow[]).map(
+          (row) => ({
+            date: new Date(row.booking_date),
+            bookings: row.highest_ticket_index,
+            closed: false,
+          })
+        );
+        setDays(mapped);
+      }
+      setLoading(false);
     };
-  });
-};
 
-export default function Schedule({
-  days = createDefaultSchedule(),
-}: ScheduleProps) {
+    fetchSchedule();
+  }, []);
+
   return (
     <div className="flex flex-col h-full bg-zinc-950">
       {/* Header */}
@@ -38,6 +64,22 @@ export default function Schedule({
 
       {/* 7 Day Schedule */}
       <div className="flex-1 overflow-y-auto px-4 pb-4 flex flex-col gap-2">
+        {loading && (
+          <p className="text-white/50 text-sm text-center py-8">
+            Loading…
+          </p>
+        )}
+
+        {!loading && error && (
+          <p className="text-red-400 text-sm text-center py-8">{error}</p>
+        )}
+
+        {!loading && !error && days.length === 0 && (
+          <p className="text-white/50 text-sm text-center py-8">
+            No schedule data
+          </p>
+        )}
+
         {days.map((day, index) => {
           const dayName = new Intl.DateTimeFormat("en-ZA", {
             weekday: "long",

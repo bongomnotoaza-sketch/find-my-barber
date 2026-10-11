@@ -1,20 +1,23 @@
-import { useState, useEffect } from "react";
+// App.tsx
+import { useState, useEffect, useRef } from "react";
 import type { User } from "@supabase/supabase-js";
 import { AnimatePresence, motion } from "motion/react";
-import { Search } from "lucide-react";
+import { Search, ImagePlus } from "lucide-react";
 import { getCurrentUser, onAuthStateChange, signOut } from "./lib/auth";
 import { supabase } from "./lib/superbase";
 import { updateProfile } from "./lib/profiles";
 import { saveBarberProfile } from "./lib/barber_profiles";
-import { useIsBarber } from "./lib/useIsBarber"; // NEW
+import { createPostWithUploads, CreatePostError } from "./lib/posts";
+// ── Feed loader + types live in get_posts.ts now
+import { getFeedPosts, type FeedPost } from "./lib/get_posts";
+import { createBooking } from "./lib/create_booking";
+import { followBarber, unfollowBarber, isFollowing } from "./lib/follow";
+import { useIsBarber } from "./lib/useIsBarber";
+import { useLatestPosterProfile } from "./lib/useLatestPosterProfile";
+import ResultsList from "./components/mainarea/searchresultlist";
 import BookPopUp from "./components/mainarea/bookpopup";
-import Description from "./components/mainarea/description";
-import AppFooter from "./components/mainarea/footer";
-import MainImage from "./components/mainarea/mainimage";
-import MainNav from "./components/mainarea/mainnav";
 import OrderSummary from "./components/mainarea/ordersummary";
 import BarberScreen from "./components/mainarea/barber";
-import BackgroundMusic from "./components/mainarea/backroundmusic";
 import CommentsPopUp from "./components/mainarea/comments";
 import Login from "./components/mainarea/loginpage";
 import Sidebar from "./components/sidebar/sidebar";
@@ -24,8 +27,16 @@ import BarberProfileSetup from "./components/sidebar/barber_set_profile";
 import RefundsPolicy from "./components/mainarea/refundspolicy";
 import PrivacyPolicy from "./components/mainarea/privacypolicys";
 import TermsPolicy from "./components/mainarea/termspolicys";
+import CreatePost, { type Category } from "./components/mainarea/createpost";
+import PostCard from "./components/mainarea/PostCard";
+
+const MUSIC_SRC = "/u_iu7xltufu1-sikhala-sonke-prodbywizlee-166112.mp3"; // from /public
+const PAGE_SIZE = 8;
+
+/* ---------- Types ---------- */
 
 type Service = {
+  id: string;
   image: string;
   name: string;
   price: number | string;
@@ -37,26 +48,6 @@ type Comment = {
   text: string;
   likes: number;
 };
-
-const defaultServices: Service[] = [
-  {
-    image: "https://images.unsplash.com/photo-1503951914875-452162b0f3f1",
-    name: "Haircut",
-    price: 150,
-  },
-  {
-    image: "https://images.unsplash.com/photo-1621605815971-fbc98d665033",
-    name: "Haircut + Beard",
-    price: 200,
-  },
-  {
-    image: "https://images.unsplash.com/photo-1599351431202-1e0f0d4b1f1e",
-    name: "Beard Trim",
-    price: 80,
-  },
-];
-
-const MUSIC_SRC = "/kontraa-water-afro-pop-music-445661.mp3";
 
 type View =
   | "home"
@@ -70,14 +61,17 @@ type Feed = "barbers" | "general";
 type Role = "user" | "barber";
 
 export default function App() {
+  /* ---------- Session & profile gating ---------- */
+
   const [user, setUser] = useState<User | null>(null);
   const [checkingSession, setCheckingSession] = useState(true);
 
-  // profile setup gating
   const [showProfileSetup, setShowProfileSetup] = useState(false);
   const [showBarberSetup, setShowBarberSetup] = useState(false);
   const [checkingProfile, setCheckingProfile] = useState(true);
   const [pendingRole, setPendingRole] = useState<Role>("user");
+
+  /* ---------- View state ---------- */
 
   const [view, setView] = useState<View>("home");
   const [activeFeed, setActiveFeed] = useState<Feed>("barbers");
@@ -85,16 +79,76 @@ export default function App() {
   const [showComments, setShowComments] = useState(false);
   const [showSidebar, setShowSidebar] = useState(false);
   const [showSignUp, setShowSignUp] = useState(false);
+  const [showCreatePost, setShowCreatePost] = useState(false);
+  const [showSearch, setShowSearch] = useState(false);
   const [comments, setComments] = useState<Comment[]>([]);
-  const [selectedIndex, setSelectedIndex] = useState<number | undefined>(
-    undefined
-  );
+
+  /* ---------- Feed state ---------- */
+
+  const [posts, setPosts] = useState<FeedPost[]>([]);
+  const [loadingFeed, setLoadingFeed] = useState(false);
+  const [feedError, setFeedError] = useState<string | null>(null);
+
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
+  const [activeIndex, setActiveIndex] = useState(0);
+  const loadingMoreRef = useRef(false);
+  const scrollRafRef = useRef<number | null>(null);
+
+  /* ---------- Feed scroll restoration ---------- */
+
+  const feedScrollRef = useRef<HTMLDivElement | null>(null);
+  const savedPostIndexRef = useRef<number>(0);
+
+  /* ---------- Booking selection ---------- */
+
+  const [selectedService, setSelectedService] = useState<Service | null>(null);
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
 
-  // NEW: role detection for sidebar
+  // The barber whose profile the signed-in user is currently viewing.
+  const [viewingBarberId, setViewingBarberId] = useState<string | null>(null);
+
+  // Poster info captured from the tapped post so the barber header
+  // matches what Description showed on the feed.
+  const [viewingBarberName, setViewingBarberName] = useState<string | null>(
+    null,
+  );
+  const [viewingBarberAvatar, setViewingBarberAvatar] = useState<string | null>(
+    null,
+  );
+
+  const { barberId: posterBarberId } = useLatestPosterProfile();
+  const activeBarberId = viewingBarberId ?? posterBarberId ?? undefined;
+
+  // Display name used as a fallback for the booking `name` field.
+  const [currentUserName, setCurrentUserName] = useState<string>("");
+
+  // Payment submission state
+  const [paying, setPaying] = useState(false);
+  const [payError, setPayError] = useState<string | null>(null);
+
+  /* ---------- Follow state ---------- */
+
+  const [following, setFollowing] = useState(false);
+  const [followLoading, setFollowLoading] = useState(false);
+
+  /* ---------- Role detection ---------- */
+
   const isBarber = useIsBarber(user?.id);
 
-  // Check for an existing session on mount
+  /* ---------- Derived: is the main (home) screen actually showing? ---------- */
+
+  const isOnMainView =
+    !!user &&
+    !checkingSession &&
+    !checkingProfile &&
+    !showProfileSetup &&
+    !showBarberSetup &&
+    view === "home";
+
+  /* ---------- Effects ---------- */
+
+  // Session on mount
   useEffect(() => {
     getCurrentUser().then((result) => {
       if (result.success) {
@@ -110,8 +164,7 @@ export default function App() {
     return unsubscribe;
   }, []);
 
-  // Whenever we have a user (or pendingRole changes), decide which setup
-  // screen — if any — to show.
+  // Profile gating
   useEffect(() => {
     if (!user) {
       setCheckingProfile(false);
@@ -121,7 +174,6 @@ export default function App() {
     setCheckingProfile(true);
 
     (async () => {
-      // 1. Is the base profile complete?
       const { data: profile, error: profileErr } = await supabase
         .from("profiles")
         .select("display_name")
@@ -142,7 +194,6 @@ export default function App() {
         return;
       }
 
-      // 2. Base profile is complete → is this a barber account?
       const { data: barber } = await supabase
         .from("barber_profiles")
         .select("id")
@@ -164,18 +215,278 @@ export default function App() {
     })();
   }, [user, pendingRole]);
 
+  // Load the feed whenever the user is signed in and profile gating is done.
+  useEffect(() => {
+    if (!user || checkingProfile) {
+      setPosts([]);
+      setHasMore(true);
+      return;
+    }
+
+    let cancelled = false;
+    setLoadingFeed(true);
+    setFeedError(null);
+
+    getFeedPosts(supabase, { limit: PAGE_SIZE })
+      .then((rows) => {
+        if (cancelled) return;
+        setPosts([...rows]);
+        setHasMore(rows.length === PAGE_SIZE);
+        setActiveIndex(0);
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          setFeedError(
+            err instanceof Error ? err.message : "Failed to load feed",
+          );
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingFeed(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [user, checkingProfile]);
+
+  // Restore the feed's scroll position whenever we come back to "home".
+  useEffect(() => {
+    if (view !== "home") return;
+    const el = feedScrollRef.current;
+    if (!el) return;
+
+    const id = requestAnimationFrame(() => {
+      el.scrollTop = savedPostIndexRef.current * el.clientHeight;
+      setActiveIndex(savedPostIndexRef.current);
+    });
+    return () => cancelAnimationFrame(id);
+  }, [view]);
+
+  // Fetch the next page when the user is within 3 posts of the end.
+  useEffect(() => {
+    if (posts.length > 0 && activeIndex >= posts.length - 3) {
+      void loadMore();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeIndex, posts.length, hasMore]);
+
+  // Load the signed-in user's display name for booking fallback
+  useEffect(() => {
+    if (!user) {
+      setCurrentUserName("");
+      return;
+    }
+    let cancelled = false;
+
+    (async () => {
+      const { data } = await supabase
+        .from("profiles")
+        .select("display_name")
+        .eq("id", user.id)
+        .maybeSingle();
+
+      if (!cancelled) {
+        setCurrentUserName(data?.display_name ?? "Guest");
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [user]);
+
+  // Load follow state whenever the viewer or the active barber changes
+  useEffect(() => {
+    if (!user || !activeBarberId || activeBarberId === user.id) {
+      setFollowing(false);
+      return;
+    }
+
+    let cancelled = false;
+    (async () => {
+      const result = await isFollowing(activeBarberId, user.id);
+      if (!cancelled && result.success) setFollowing(result.data);
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [user, activeBarberId]);
+
+  // Background music: plays only while the main (home) view is showing.
+  useEffect(() => {
+    if (!isOnMainView) return;
+
+    const audio = new Audio(MUSIC_SRC);
+    audio.loop = true;
+    audio.volume = 0.4;
+
+    const gestureEvents = ["pointerdown", "touchstart", "keydown", "click"];
+
+    const removeGestureListeners = () =>
+      gestureEvents.forEach((e) =>
+        window.removeEventListener(e, startOnGesture),
+      );
+
+    function startOnGesture() {
+      if (document.hidden) return;
+      audio
+        .play()
+        .then(removeGestureListeners)
+        .catch((err) =>
+          console.warn("Music play failed:", err.name, err.message),
+        );
+    }
+
+    audio.play().catch((err) => {
+      console.warn("Music autoplay failed:", err.name, err.message);
+      if (err.name === "NotAllowedError") {
+        gestureEvents.forEach((e) =>
+          window.addEventListener(e, startOnGesture, { passive: true }),
+        );
+      }
+    });
+
+    const handleVisibility = () => {
+      if (document.hidden) {
+        audio.pause();
+      } else {
+        audio.play().catch(() => {
+          /* will start on next gesture if still blocked */
+        });
+      }
+    };
+
+    const handlePageHide = () => audio.pause();
+
+    document.addEventListener("visibilitychange", handleVisibility);
+    window.addEventListener("pagehide", handlePageHide);
+
+    return () => {
+      removeGestureListeners();
+      document.removeEventListener("visibilitychange", handleVisibility);
+      window.removeEventListener("pagehide", handlePageHide);
+      audio.pause();
+      audio.removeAttribute("src");
+      audio.load();
+    };
+  }, [isOnMainView]);
+
+  /* ---------- Handlers ---------- */
+
+  // Capture which post is currently snapped into view, so we can restore
+  // it when the user returns to the home feed.
+  const captureActivePostIndex = () => {
+    const el = feedScrollRef.current;
+    if (!el) return;
+    const cardHeight = el.clientHeight;
+    if (cardHeight <= 0) return;
+    savedPostIndexRef.current = Math.round(el.scrollTop / cardHeight);
+  };
+
+  const loadMore = async () => {
+    if (loadingMoreRef.current || !hasMore) return;
+    loadingMoreRef.current = true;
+    setLoadingMore(true);
+
+    try {
+      const rows = await getFeedPosts(supabase, {
+        limit: PAGE_SIZE,
+        offset: posts.length,
+      });
+
+      setPosts((prev) => {
+        const seen = new Set(prev.map((p) => p.id));
+        return [...prev, ...rows.filter((r) => !seen.has(r.id))];
+      });
+      setHasMore(rows.length === PAGE_SIZE);
+    } catch (err) {
+      console.warn("Load more failed:", err);
+    } finally {
+      loadingMoreRef.current = false;
+      setLoadingMore(false);
+    }
+  };
+
+  // Throttled to one update per frame.
+  const handleFeedScroll = () => {
+    if (scrollRafRef.current != null) return;
+    scrollRafRef.current = requestAnimationFrame(() => {
+      scrollRafRef.current = null;
+      const el = feedScrollRef.current;
+      if (!el || el.clientHeight <= 0) return;
+      const i = Math.round(el.scrollTop / el.clientHeight);
+      setActiveIndex((prev) => (prev === i ? prev : i));
+    });
+  };
+
+  // BookPopUp's "Book" → navigate to the barber's profile.
   const handleBook = () => {
-    if (selectedIndex === undefined) return;
+    captureActivePostIndex();
     setShowBookPopup(false);
     setSelectedDate(undefined);
+
+    if (posterBarberId) {
+      setViewingBarberId(posterBarberId);
+    }
+
+    // No post context here — clear so header falls back to defaults.
+    setViewingBarberName(null);
+    setViewingBarberAvatar(null);
+
     setView("barber");
   };
 
+  // BarberStats's "Book" → go to the summary with both service + date.
   const handleBarberBook = (service: Service, date: Date) => {
-    const index = defaultServices.findIndex((s) => s.name === service.name);
-    setSelectedIndex(index >= 0 ? index : undefined);
+    setSelectedService(service);
     setSelectedDate(date);
     setView("order-summary");
+  };
+
+  // OrderSummary's "Pay Now" → actually insert into `bookings`.
+  const handlePay = async (bookingForName: string) => {
+    if (paying) return;
+
+    if (!user) {
+      setPayError("Not signed in.");
+      return;
+    }
+    if (!activeBarberId) {
+      setPayError("No barber selected.");
+      return;
+    }
+    if (!selectedService?.id) {
+      setPayError("No service selected.");
+      return;
+    }
+    if (!selectedDate) {
+      setPayError("No date selected.");
+      return;
+    }
+
+    setPaying(true);
+    setPayError(null);
+
+    const result = await createBooking({
+      user_id: user.id,
+      barber_id: activeBarberId,
+      service_id: selectedService.id,
+      name: bookingForName.trim() || currentUserName || "Guest",
+      booking_date: selectedDate,
+    });
+
+    setPaying(false);
+
+    if (!result.success) {
+      setPayError(result.error);
+      return;
+    }
+
+    setSelectedService(null);
+    setSelectedDate(undefined);
+    setView("home");
   };
 
   const handleAddComment = (text: string) => {
@@ -183,6 +494,71 @@ export default function App() {
       ...prev,
       { id: Date.now().toString(), username: "you", text, likes: 0 },
     ]);
+  };
+
+  const handleCreatePost = async (
+    images: File[],
+    description: string,
+    category: Category | null,
+  ) => {
+    if (!user) throw new Error("Not signed in.");
+    if (images.length === 0) throw new Error("Add at least one image.");
+
+    try {
+      const result = await createPostWithUploads(supabase, {
+        barber_id: user.id,
+        category: category ?? "Haircut",
+        description: description || null,
+        media: images.map((file, index) => ({
+          file,
+          filename: file.name || `image-${index}.jpg`,
+          audio: null,
+        })),
+      });
+
+      console.log(
+        "Post created:",
+        result.post.id,
+        `${result.media.length} media`,
+      );
+      setShowCreatePost(false);
+
+      try {
+        const rows = await getFeedPosts(supabase, { limit: PAGE_SIZE });
+        setPosts([...rows]);
+        setHasMore(rows.length === PAGE_SIZE);
+        savedPostIndexRef.current = 0;
+        setActiveIndex(0);
+        if (feedScrollRef.current) feedScrollRef.current.scrollTop = 0;
+      } catch (refreshErr) {
+        console.warn("Feed refresh after post failed:", refreshErr);
+      }
+    } catch (err) {
+      if (err instanceof CreatePostError) throw new Error(err.message);
+      throw err;
+    }
+  };
+
+  // Follow / Unfollow the currently active barber.
+  const handleFollowToggle = async () => {
+    if (!user || !activeBarberId || activeBarberId === user.id) return;
+    if (followLoading) return;
+
+    setFollowLoading(true);
+    const currentlyFollowing = following;
+
+    setFollowing(!currentlyFollowing);
+
+    const result = currentlyFollowing
+      ? await unfollowBarber(activeBarberId, user.id)
+      : await followBarber(activeBarberId, user.id);
+
+    if (!result.success) {
+      console.error("Follow toggle failed:", result.error);
+      setFollowing(currentlyFollowing);
+    }
+
+    setFollowLoading(false);
   };
 
   const handleSignOut = async () => {
@@ -209,8 +585,22 @@ export default function App() {
     setView("terms-policy");
   };
 
-  const selectedService =
-    selectedIndex !== undefined ? defaultServices[selectedIndex] : undefined;
+  // Avatar tap on the feed — opens the barber's profile with the
+  // poster's display name and avatar so the header matches the feed.
+  const handleOpenBarberProfile = (post: FeedPost) => {
+    captureActivePostIndex();
+    setViewingBarberId(post.barber_id);
+    setViewingBarberName(post.barber_display_name ?? null);
+    setViewingBarberAvatar(post.barber_avatar_url ?? null);
+    setView("barber");
+  };
+
+  // Profile icon tap in the bottom footer — opens the sidebar.
+  const handleOpenSidebar = () => {
+    setShowSidebar(true);
+  };
+
+  /* ---------- Derived ---------- */
 
   const formattedDate = selectedDate
     ? new Intl.DateTimeFormat("en-ZA", {
@@ -219,6 +609,8 @@ export default function App() {
         year: "numeric",
       }).format(selectedDate)
     : "";
+
+  /* ---------- Early returns ---------- */
 
   if (checkingSession || (user && checkingProfile)) {
     return (
@@ -321,15 +713,10 @@ export default function App() {
     );
   }
 
+  /* ---------- Main render ---------- */
+
   return (
     <>
-      <BackgroundMusic
-        src={MUSIC_SRC}
-        volume={0.25}
-        loop
-        playing={view === "home"}
-      />
-
       <AnimatePresence>
         {showSidebar && (
           <>
@@ -351,7 +738,7 @@ export default function App() {
               className="fixed inset-y-0 left-0 z-40"
             >
               <Sidebar
-                role={isBarber ? "barber" : "user"}   // NEW
+                role={isBarber ? "barber" : "user"}
                 onSignOut={handleSignOut}
                 onOpenRefundsPolicy={handleOpenRefundsPolicy}
                 onOpenPrivacyPolicy={handleOpenPrivacyPolicy}
@@ -364,10 +751,18 @@ export default function App() {
 
       {view === "barber" && (
         <BarberScreen
-          isBarber={!!isBarber}  
-          onBack={() => setView("home")}
+          isBarber={!!isBarber}
+          barberId={isBarber ? user.id : activeBarberId}
+          barberName={viewingBarberName ?? undefined}
+          barberAvatar={viewingBarberAvatar ?? undefined}
+          onBack={() => {
+            setView("home");
+            setViewingBarberId(null);
+            setViewingBarberName(null);
+            setViewingBarberAvatar(null);
+          }}
           onBook={handleBarberBook}
-          initialServiceIndex={selectedIndex}
+          onCreatePost={handleCreatePost}
         />
       )}
 
@@ -387,10 +782,16 @@ export default function App() {
             time="14:30"
             barberName="Fresh Cuts"
             total={selectedService?.price ?? ""}
-            onPay={(bookingForName) => {
-              console.log("Booking for:", bookingForName || "self");
-            }}
+            onPay={handlePay}
           />
+
+          {payError && (
+            <p className="mt-3 text-sm text-red-400">{payError}</p>
+          )}
+
+          {paying && (
+            <p className="mt-3 text-sm text-white/60">Sending booking…</p>
+          )}
         </div>
       )}
 
@@ -406,16 +807,15 @@ export default function App() {
         <TermsPolicy onBack={() => setView("home")} />
       )}
 
+      {/* ───────────── HOME / FEED ───────────── */}
       {view === "home" && (
         <div className="relative h-dvh w-full overflow-hidden bg-zinc-950">
-          <div className="absolute inset-0">
-            <MainImage transition="zoom" />
-          </div>
-
-          <div className="absolute inset-x-0 top-3 z-20 h-10">
+          {/* Floating top bar (search + feed tabs) */}
+          <div className="absolute inset-x-0 top-3 z-30 h-10">
             <motion.button
               type="button"
               aria-label="Search"
+              onClick={() => setShowSearch(true)}
               className="absolute left-3 top-0 flex h-9 w-9 items-center justify-center rounded-full bg-black/40 backdrop-blur-md"
               whileTap={{ scale: 0.92 }}
               whileHover={{ scale: 1.05 }}
@@ -486,34 +886,83 @@ export default function App() {
             </svg>
           </div>
 
-          <MainNav
-            likes={120}
-            comments={comments.length}
-            favourites={45}
-            shares={18}
-            onUserPress={() => setView("barber")}
-            onCommentsPress={() => setShowComments(true)}
-          />
+          {/* Scrollable feed of posts */}
+          {loadingFeed && posts.length === 0 ? (
+            <div className="flex h-full items-center justify-center text-white/60">
+              Loading feed…
+            </div>
+          ) : feedError ? (
+            <div className="flex h-full items-center justify-center px-6 text-center text-red-400">
+              {feedError}
+            </div>
+          ) : posts.length === 0 ? (
+            <div className="flex h-full items-center justify-center text-white/60">
+              No posts yet.
+            </div>
+          ) : (
+            <>
+              <div
+                ref={feedScrollRef}
+                onScroll={handleFeedScroll}
+                className="h-full w-full snap-y snap-mandatory overflow-y-auto overscroll-contain"
+              >
+                {posts.map((post, index) => {
+                  const isActiveBarber = activeBarberId === post.barber_id;
 
-          <div className="absolute bottom-0 left-0 right-0 z-10 flex flex-col">
-            <Description
-              username="Fresh Cuts"
-              verified
-              description="Professional barber specializing in modern cuts, fades, beard grooming and styling."
-            />
+                  return (
+                    <PostCard
+                      key={post.id}
+                      post={post}
+                      shouldLoad={Math.abs(index - activeIndex) <= 1}
+                      isBarber={!!isBarber}
+                      canFollow={!!user && post.barber_id !== user.id}
+                      isFollowing={isActiveBarber ? following : false}
+                      followLoading={isActiveBarber ? followLoading : false}
+                      onFollowToggle={() => {
+                        setViewingBarberId(post.barber_id);
+                        void handleFollowToggle();
+                      }}
+                      onPlusPress={() => {
+                        setViewingBarberId(post.barber_id);
+                        setViewingBarberName(post.barber_display_name ?? null);
+                        setViewingBarberAvatar(post.barber_avatar_url ?? null);
+                        setShowBookPopup(true);
+                      }}
+                      onUserPress={() => handleOpenBarberProfile(post)}
+                      onSidebarPress={handleOpenSidebar}
+                      
+                    />
+                  );
+                })}
+              </div>
 
-            <AppFooter
-              onPlusPress={() => setShowBookPopup(true)}
-              onUserPress={() => setShowSidebar(true)}
-            />
-          </div>
+              {loadingMore && (
+                <div className="pointer-events-none absolute bottom-24 left-1/2 z-20 -translate-x-1/2 rounded-full bg-black/60 px-3 py-1 text-xs text-white/70">
+                  Loading more…
+                </div>
+              )}
+            </>
+          )}
+
+          {/* Barber-only floating create-post button */}
+          {isBarber && (
+            <motion.button
+              type="button"
+              onClick={() => setShowCreatePost(true)}
+              className="absolute bottom-28 right-4 z-30 flex h-14 w-14 items-center justify-center rounded-full bg-white text-black shadow-lg"
+              whileTap={{ scale: 0.92 }}
+              whileHover={{ scale: 1.05 }}
+              aria-label="Create post"
+            >
+              <ImagePlus size={22} />
+            </motion.button>
+          )}
 
           <AnimatePresence>
             {showBookPopup && (
               <BookPopUp
-                services={defaultServices}
-                selectedIndex={selectedIndex}
-                onSelect={(index) => setSelectedIndex(index)}
+                barberId={activeBarberId}
+                onSelect={(_index, service) => setSelectedService(service)}
                 onBook={handleBook}
                 onClose={() => setShowBookPopup(false)}
               />
@@ -529,8 +978,57 @@ export default function App() {
               />
             )}
           </AnimatePresence>
+
+          <AnimatePresence>
+            {showSearch && (
+              <motion.div
+                key="search-overlay"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.2 }}
+                className="fixed inset-0 z-50 flex flex-col bg-zinc-950"
+              >
+                <div className="flex items-center gap-3 border-b border-white/10 p-3">
+                  <button
+                    type="button"
+                    onClick={() => setShowSearch(false)}
+                    className="text-white text-2xl leading-none px-1"
+                    aria-label="Close search"
+                  >
+                    ←
+                  </button>
+                  <input
+                    type="text"
+                    placeholder="Search barbers…"
+                    className="flex-1 bg-transparent text-white placeholder-white/40 outline-none"
+                    autoFocus
+                  />
+                </div>
+
+                <div className="flex-1 min-h-0">
+                  <ResultsList />
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
       )}
+
+      <AnimatePresence>
+        {showCreatePost && (
+          <motion.div
+            key="create-post"
+            initial={{ opacity: 0, y: 24 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 24 }}
+            transition={{ type: "spring", stiffness: 300, damping: 30 }}
+            className="fixed inset-0 z-50 bg-zinc-950"
+          >
+            <CreatePost onPost={handleCreatePost} />
+          </motion.div>
+        )}
+      </AnimatePresence>
     </>
   );
 }

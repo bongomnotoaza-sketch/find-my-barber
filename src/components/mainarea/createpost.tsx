@@ -3,7 +3,6 @@ import {
   ChevronLeft,
   ChevronRight,
   ImagePlus,
-  Music,
   Send,
   X,
 } from "lucide-react";
@@ -13,11 +12,23 @@ const MAX_SIZE_MB = 10;
 const MAX_SIZE_BYTES = MAX_SIZE_MB * 1024 * 1024;
 const ACCEPT = "image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif";
 
-export type Song = {
-  id: string;
-  title: string;
-  artist: string;
-};
+const MAX_DESCRIPTION = 500;
+
+// Default categories for a barber service.
+const CATEGORIES = [
+  "Haircut",
+  "Beard Trim",
+  "Hot Towel Shave",
+  "Fade",
+  "Line Up",
+  "Hair Coloring",
+  "Kids Cut",
+  "Styling",
+  "Before & After",
+  "Shop Update",
+] as const;
+
+export type Category = (typeof CATEGORIES)[number];
 
 type Item = {
   id: string;
@@ -26,7 +37,11 @@ type Item = {
 };
 
 type CreatePostProps = {
-  onPost?: (images: File[], song: Song | null) => void | Promise<void>;
+  onPost?: (
+    images: File[],
+    description: string,
+    category: Category | null
+  ) => void | Promise<void>;
 };
 
 // File.type is sometimes empty for HEIC, so fall back to the extension.
@@ -41,7 +56,8 @@ export default function CreatePost({ onPost }: CreatePostProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [items, setItems] = useState<Item[]>([]);
-  const [song, setSong] = useState<Song | null>(null);
+  const [description, setDescription] = useState("");
+  const [category, setCategory] = useState<Category | null>(null);
   const [isPosting, setIsPosting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -178,13 +194,19 @@ export default function CreatePost({ onPost }: CreatePostProps) {
     try {
       await onPost?.(
         items.map((item) => item.file),
-        song
+        description.trim(),
+        category
       );
       items.forEach((item) => URL.revokeObjectURL(item.url));
       setItems([]);
-      setSong(null);
-    } catch {
-      setError("Couldn't publish your post. Check your connection and try again.");
+      setDescription("");
+      setCategory(null);
+    } catch (err) {
+      setError(
+        err instanceof Error && err.message
+          ? err.message
+          : "Couldn't publish your post. Check your connection and try again."
+      );
     } finally {
       setIsPosting(false);
     }
@@ -214,7 +236,7 @@ export default function CreatePost({ onPost }: CreatePostProps) {
         )}
       </div>
 
-      {/* Content */}
+      {/* Content (scrollable) */}
       <div
         className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain p-5"
         onDragOver={handleZoneDragOver}
@@ -361,46 +383,61 @@ export default function CreatePost({ onPost }: CreatePostProps) {
 
         {/* Controls */}
         <div className="mt-6 space-y-3">
-          {/* Song */}
-          <div className="flex w-full items-center rounded-xl border border-white/10 bg-white/[0.03] transition hover:bg-white/[0.06]">
-            <button
-              type="button"
-              disabled={isPosting}
-              onClick={() => {
-                // Replace with your song picker later.
-                setSong(
-                  song ?? {
-                    id: "placeholder",
-                    title: "Selected Song",
-                    artist: "Unknown artist",
-                  }
+          {/* Category */}
+          <div>
+            <label className="mb-1.5 block text-xs font-medium text-white/60">
+              Category
+            </label>
+            <div className="flex flex-wrap gap-2">
+              {CATEGORIES.map((option) => {
+                const selected = category === option;
+                return (
+                  <button
+                    key={option}
+                    type="button"
+                    disabled={isPosting}
+                    onClick={() =>
+                      setCategory((current) =>
+                        current === option ? null : option
+                      )
+                    }
+                    aria-pressed={selected}
+                    className={`rounded-full border px-3 py-1.5 text-xs font-medium transition disabled:opacity-40 ${
+                      selected
+                        ? "border-white bg-white text-black"
+                        : "border-white/15 bg-white/[0.03] text-white/70 hover:border-white/40 hover:text-white"
+                    }`}
+                  >
+                    {option}
+                  </button>
                 );
-              }}
-              className="flex flex-1 items-center gap-3 px-4 py-3 text-left disabled:opacity-40"
+              })}
+            </div>
+          </div>
+
+          {/* Description */}
+          <div>
+            <label
+              htmlFor="post-description"
+              className="mb-1.5 block text-xs font-medium text-white/60"
             >
-              <Music size={19} className="text-white/70" />
-
-              <div>
-                <p className="text-sm font-medium text-white">
-                  {song ? song.title : "Choose a song"}
-                </p>
-                <p className="text-xs text-white/40">
-                  {song ? song.artist : "Add music to your post"}
-                </p>
-              </div>
-            </button>
-
-            {song && (
-              <button
-                type="button"
-                onClick={() => setSong(null)}
-                disabled={isPosting}
-                aria-label="Remove song"
-                className="p-3 text-white/50 transition hover:text-white disabled:opacity-40"
-              >
-                <X size={17} />
-              </button>
-            )}
+              Description
+            </label>
+            <textarea
+              id="post-description"
+              value={description}
+              onChange={(event) =>
+                setDescription(event.target.value.slice(0, MAX_DESCRIPTION))
+              }
+              disabled={isPosting}
+              rows={3}
+              maxLength={MAX_DESCRIPTION}
+              placeholder="Describe your work, the cut, products used, or anything else…"
+              className="w-full resize-none rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm text-white placeholder:text-white/30 outline-none transition focus:border-white/40 focus:bg-white/[0.06] disabled:opacity-40"
+            />
+            <p className="mt-1 text-right text-[11px] text-white/40">
+              {description.length}/{MAX_DESCRIPTION}
+            </p>
           </div>
 
           {/* Error */}
@@ -409,18 +446,20 @@ export default function CreatePost({ onPost }: CreatePostProps) {
               {error}
             </p>
           )}
-
-          {/* Post */}
-          <button
-            type="button"
-            disabled={!items.length || isPosting}
-            onClick={handlePost}
-            className="flex w-full items-center justify-center gap-2 rounded-xl bg-white px-4 py-3 text-sm font-semibold text-black transition hover:bg-white/90 disabled:cursor-not-allowed disabled:opacity-30"
-          >
-            <Send size={18} />
-            {isPosting ? "Posting..." : "Post"}
-          </button>
         </div>
+      </div>
+
+      {/* Pinned footer */}
+      <div className="shrink-0 border-t border-white/10 bg-zinc-950 px-5 pt-3 pb-[max(1rem,env(safe-area-inset-bottom))]">
+        <button
+          type="button"
+          disabled={!items.length || isPosting}
+          onClick={handlePost}
+          className="flex w-full items-center justify-center gap-2 rounded-xl bg-white px-4 py-3 text-sm font-semibold text-black transition hover:bg-white/90 disabled:cursor-not-allowed disabled:opacity-30"
+        >
+          <Send size={18} />
+          {isPosting ? "Posting..." : "Post"}
+        </button>
       </div>
     </div>
   );

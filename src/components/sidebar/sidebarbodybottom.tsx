@@ -2,7 +2,6 @@ import { useState } from "react";
 import BarbersFollowing from "./barbersfollowing";
 import BookingsList from "./bookings";
 import Tickets from "./tickets";
-import Refunds from "./refunds";
 import AccountSettings from "./accountsettings";
 import Earnings from "./income";
 import Bookings from "./barber_bookings";
@@ -19,13 +18,10 @@ import Expenses from "./espenses";
 const USER_OPTIONS = [
   "bookings",
   "tickets",
-  "refunds",
-  "reviews",
   "barbers following",
   "account settings",
   "help",
   "platform policy",
-  "refunds policy",
   "privacy policy",
 ] as const;
 
@@ -40,7 +36,6 @@ const BARBER_OPTIONS = [
   "reviews",
   "account settings",
   "platform policy",
-  "refund policy",
   "privacy policy",
   "help",
 ] as const;
@@ -58,13 +53,11 @@ const icons: Record<ToggleOption, string> = {
   line: "fa-users",
   bookings: "fa-calendar-check",
   tickets: "fa-ticket",
-  refunds: "fa-rotate-left",
   reviews: "fa-star",
   "barbers following": "fa-user-group",
   "account settings": "fa-gear",
   help: "fa-circle-question",
   "platform policy": "fa-building-shield",
-  "refunds policy": "fa-file-invoice-dollar",
   "privacy policy": "fa-shield-halved",
   // barber
   services: "fa-scissors",
@@ -72,7 +65,6 @@ const icons: Record<ToggleOption, string> = {
   schedule: "fa-clock",
   earnings: "fa-sack-dollar",
   expenses: "fa-receipt",
-  "refund policy": "fa-file-invoice-dollar",
 };
 
 /* ------------------------------------------------------------------ */
@@ -82,7 +74,6 @@ const icons: Record<ToggleOption, string> = {
 const userSubViews = {
   bookings: { title: "Bookings", Component: BookingsList },
   tickets: { title: "Tickets", Component: Tickets },
-  refunds: { title: "Refunds", Component: Refunds },
   "barbers following": { title: "Barbers Following", Component: BarbersFollowing },
   "account settings": { title: "Account Settings", Component: AccountSettings },
 } as const;
@@ -112,7 +103,6 @@ type SidebarView =
 type SidebarBodyBottomProps = {
   role?: "user" | "barber";
   onSignOut: () => void | Promise<void>;
-  onOpenRefundsPolicy: () => void;
   onOpenPrivacyPolicy: () => void;
   onOpenTerms: () => void;
 };
@@ -120,7 +110,6 @@ type SidebarBodyBottomProps = {
 export default function SidebarBodyBottom({
   role = "user",
   onSignOut,
-  onOpenRefundsPolicy,
   onOpenPrivacyPolicy,
   onOpenTerms,
 }: SidebarBodyBottomProps) {
@@ -141,10 +130,6 @@ export default function SidebarBodyBottom({
   };
 
   const handleOptionClick = (option: ToggleOption) => {
-    if (option === "refunds policy" || option === "refund policy") {
-      onOpenRefundsPolicy();
-      return;
-    }
     if (option === "privacy policy") {
       onOpenPrivacyPolicy();
       return;

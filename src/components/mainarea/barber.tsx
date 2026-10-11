@@ -1,8 +1,9 @@
+// src/components/mainarea/barber.tsx
 import { ChevronLeft } from "lucide-react";
 import BarberHeader from "./barberheader";
 import BarberStats from "./barberstats";
 import MainImage from "./barberimage";
-import CreatePost from "./createpost";
+import CreatePost, { type Category } from "./createpost";
 
 type Service = {
   image: string;
@@ -12,18 +13,32 @@ type Service = {
 
 type BarberScreenProps = {
   isBarber?: boolean;
+  /** The barber whose profile we're viewing (required in customer mode). */
+  barberId?: string;
+  /** Poster name from the tapped post, so the header matches the feed. */
+  barberName?: string;
+  /** Poster avatar URL from the tapped post, so the header matches the feed. */
+  barberAvatar?: string;
   onBack?: () => void;
   onBook?: (service: Service, date: Date) => void;
   initialServiceIndex?: number;
+  onCreatePost?: (
+    images: File[],
+    description: string,
+    category: Category | null
+  ) => void | Promise<void>;
 };
 
 export default function BarberScreen({
   isBarber = false,
+  barberId,
+  barberName,
+  barberAvatar,
   onBack,
   onBook,
   initialServiceIndex,
+  onCreatePost,
 }: BarberScreenProps) {
-  // If the signed-in user is a barber, show the full Create Post screen.
   if (isBarber) {
     return (
       <div className="relative flex flex-col h-screen bg-zinc-950 overflow-hidden">
@@ -37,19 +52,17 @@ export default function BarberScreen({
             <ChevronLeft size={22} />
           </button>
         )}
-
-        <CreatePost />
+        <CreatePost onPost={onCreatePost} />
       </div>
     );
   }
 
   return (
     <div className="flex flex-col h-screen bg-zinc-950 overflow-hidden">
-      {/* Header - 10% */}
       <div className="h-[10%] shrink-0">
         <BarberHeader
-          username="Barber Name"
-          userImage="https://i.pravatar.cc/100"
+          username={barberName}
+          userImage={barberAvatar}
           verified
           rating={4.8}
           reviewCount={120}
@@ -57,14 +70,13 @@ export default function BarberScreen({
         />
       </div>
 
-      {/* Image - 30% */}
       <div className="h-[30%] shrink-0">
         <MainImage />
       </div>
 
-      {/* Stats - 60% */}
       <div className="h-[60%] overflow-y-auto">
         <BarberStats
+          barberId={barberId}
           onBook={onBook}
           initialServiceIndex={initialServiceIndex}
         />

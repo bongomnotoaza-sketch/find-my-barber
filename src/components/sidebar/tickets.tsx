@@ -1,4 +1,6 @@
+import { useEffect, useState } from "react";
 import { motion } from "motion/react";
+import { supabase } from "../../lib/superbase"; // adjust path
 
 type Ticket = {
   id: string;
@@ -7,30 +9,13 @@ type Ticket = {
   date: Date;
 };
 
-type TicketsProps = {
-  tickets?: Ticket[];
+// Raw shape returned by the RPC
+type TicketRow = {
+  id: string;
+  status: Ticket["status"];
+  booking_date: string;
+  ticket_index: number;
 };
-
-const defaultTickets: Ticket[] = [
-  {
-    id: "TCK-1042",
-    status: "confirmed",
-    position: 3,
-    date: new Date(),
-  },
-  {
-    id: "TCK-1041",
-    status: "pending",
-    position: 7,
-    date: new Date(Date.now() + 86400000),
-  },
-  {
-    id: "TCK-1039",
-    status: "completed",
-    position: 2,
-    date: new Date(Date.now() - 86400000),
-  },
-];
 
 const statusStyles: Record<Ticket["status"], string> = {
   pending: "bg-yellow-500/15 text-yellow-400",
@@ -39,7 +24,45 @@ const statusStyles: Record<Ticket["status"], string> = {
   cancelled: "bg-red-500/15 text-red-400",
 };
 
-export default function Tickets({ tickets = defaultTickets }: TicketsProps) {
+export default function Tickets() {
+  const [tickets, setTickets] = useState<Ticket[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchTickets = async () => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!user) {
+        setError("No user logged in");
+        setLoading(false);
+        return;
+      }
+
+      const { data, error } = await supabase.rpc("get_user_booking_tickets", {
+        p_user_id: user.id,
+      });
+
+      if (error) {
+        console.error(error);
+        setError(error.message);
+      } else {
+        const mapped: Ticket[] = ((data ?? []) as TicketRow[]).map((row) => ({
+          id: row.id,
+          status: row.status,
+          position: row.ticket_index,
+          date: new Date(row.booking_date),
+        }));
+        setTickets(mapped);
+      }
+      setLoading(false);
+    };
+
+    fetchTickets();
+  }, []);
+
   return (
     <div className="flex flex-col h-full bg-zinc-950">
       {/* Header */}
@@ -49,7 +72,19 @@ export default function Tickets({ tickets = defaultTickets }: TicketsProps) {
 
       {/* List */}
       <div className="flex-1 overflow-y-auto px-4 pb-4 flex flex-col gap-2">
-        {tickets.length === 0 && (
+        {loading && (
+          <p className="text-white/50 text-sm text-center py-8">
+            Loading...
+          </p>
+        )}
+
+        {!loading && error && (
+          <p className="text-red-400 text-sm text-center py-8">
+            {error}
+          </p>
+        )}
+
+        {!loading && !error && tickets.length === 0 && (
           <p className="text-white/50 text-sm text-center py-8">
             No tickets yet
           </p>

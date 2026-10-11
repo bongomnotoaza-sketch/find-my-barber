@@ -12,7 +12,7 @@ type SidebarProps = {
 export default function Sidebar({
   role = "user",
   onSignOut,
-  onOpenRefundsPolicy,
+  
   onOpenPrivacyPolicy,
   onOpenTerms,
 }: SidebarProps) {
@@ -22,7 +22,7 @@ export default function Sidebar({
       <SidebarBodyBottom
         role={role}
         onSignOut={onSignOut}
-        onOpenRefundsPolicy={onOpenRefundsPolicy}
+        
         onOpenPrivacyPolicy={onOpenPrivacyPolicy}
         onOpenTerms={onOpenTerms}
       />

@@ -55,6 +55,33 @@ export async function getMyProfile(): Promise<ProfileResult> {
   return { ok: true, profile: data as Profile, user };
 }
 
+/* ---------- Fetch any profile by id ---------- */
+
+/**
+ * Fetches `display_name`, `avatar_path`, and `bio` from the `profiles`
+ * table for an arbitrary user id (which equals the auth uid).
+ *
+ * Returns `null` if the row is missing or the query errors.
+ *
+ * Usage:
+ *   const profile = await getProfileById(post.barber_id);
+ *   const name = profile?.display_name ?? "Barber Name";
+ */
+export async function getProfileById(id: string): Promise<Profile | null> {
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("id, display_name, avatar_path, bio")
+    .eq("id", id)
+    .maybeSingle();
+
+  if (error) {
+    console.error("profiles query failed:", error);
+    return null;
+  }
+
+  return (data as Profile) ?? null;
+}
+
 /* ---------- Convenience: just the fields ---------- */
 
 /**

@@ -18,8 +18,8 @@ export default function BarberHeader({
   onBack,
 }: BarberHeaderProps) {
   return (
-    <div className="w-full bg-white/5  h-full">
-      <div className="flex flex-row items-center">
+    <div className="w-full bg-white/5 h-full">
+      <div className="flex flex-row items-center py-3">
         <button
           type="button"
           onClick={onBack}

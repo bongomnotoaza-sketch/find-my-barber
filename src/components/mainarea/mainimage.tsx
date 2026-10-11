@@ -1,36 +1,34 @@
+// components/mainarea/mainimage.tsx
 import { useCallback, useEffect, useState } from "react";
 import useEmblaCarousel from "embla-carousel-react";
 import { motion, AnimatePresence } from "motion/react";
 
-import useFadeTransition from "../../animations/transitions/fade";
-import useSlideTransition from "../../animations/transitions/slide";
-import useZoomTransition from "../../animations/transitions/zoom";
-import useWipeTransition from "../../animations/transitions/wipe";
-type TransitionType = "fade" | "slide" | "zoom" | "wipe";
-
 type MainImageProps = {
+  /** Preferred: a single image URL for this post. */
+  src?: string;
+  /** Optional: multiple image URLs (e.g. a carousel) for this post. */
   images?: string[];
-  transition?: TransitionType;
 };
 
-const defaultImages = [
-  "https://images.unsplash.com/photo-1503951914875-452162b0f3f1",
-  "https://images.unsplash.com/photo-1621605815971-fbc98d665033",
-  "https://images.unsplash.com/photo-1562322140-8baeececf3df",
-  "https://images.unsplash.com/photo-1599351431202-1e0f0d4b1f1e",
-  "https://images.unsplash.com/photo-1585747860715-2ba37e788b70",
-];
+const FALLBACK =
+  "https://images.unsplash.com/photo-1503951914875-452162b0f3f1";
 
 const AUTOPLAY_MS = 5000;
 
-export default function MainImage({
-  images = defaultImages,
-  transition = "fade",
-}: MainImageProps) {
-  const displayImages = images.slice(0, 5);
+export default function MainImage({ src, images }: MainImageProps) {
+  // Resolve the images this card should show. No network calls here —
+  // the parent (PostCard) already knows which post this is.
+  const sourceImages =
+    images && images.length > 0
+      ? images
+      : src
+        ? [src]
+        : [FALLBACK];
+
+  const displayImages = sourceImages.slice(0, 5);
 
   const [emblaRef, emblaApi] = useEmblaCarousel({
-    loop: true,
+    loop: displayImages.length > 1,
     align: "center",
     skipSnaps: false,
     dragFree: false,
@@ -39,47 +37,13 @@ export default function MainImage({
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
 
-  /* -------- Transition Bank -------- */
-
-  const fadeTransition = useFadeTransition({
-    duration: 0.8,
-  });
-
-  const slideTransition = useSlideTransition({
-    duration: 0.7,
-    direction: "left",
-  });
-
-  const zoomTransition = useZoomTransition({
-    duration: 0.9,
-    direction: "in",
-  });
-
-  const wipeTransition = useWipeTransition({
-    duration: 0.8,
-    direction: "left",
-  });
-
-  const transitions = {
-    fade: fadeTransition,
-    slide: slideTransition,
-    zoom: zoomTransition,
-    wipe: wipeTransition,
-  };
-
-  const activeTransition = transitions[transition];
-
   /* -------- Sync Embla with React -------- */
-
   useEffect(() => {
     if (!emblaApi) return;
 
-    const onSelect = () => {
-      setSelectedIndex(emblaApi.selectedScrollSnap());
-    };
+    const onSelect = () => setSelectedIndex(emblaApi.selectedScrollSnap());
 
     onSelect();
-
     emblaApi.on("select", onSelect);
     emblaApi.on("reInit", onSelect);
 
@@ -90,22 +54,27 @@ export default function MainImage({
   }, [emblaApi]);
 
   /* -------- Autoplay -------- */
-
   useEffect(() => {
-    if (!emblaApi || isPaused) return;
+    if (!emblaApi || isPaused || displayImages.length <= 1) return;
 
     const id = setInterval(() => {
       emblaApi.scrollNext();
     }, AUTOPLAY_MS);
 
     return () => clearInterval(id);
-  }, [emblaApi, isPaused, selectedIndex]);
+  }, [emblaApi, isPaused, selectedIndex, displayImages.length]);
 
-  /* -------- Manual Navigation -------- */
+  /* -------- ReInit when the image list changes -------- */
+  useEffect(() => {
+    if (!emblaApi) return;
+    emblaApi.reInit();
+    emblaApi.scrollTo(0);
+    setSelectedIndex(0);
+  }, [emblaApi, src, images]);
 
   const scrollTo = useCallback(
     (index: number) => emblaApi?.scrollTo(index),
-    [emblaApi]
+    [emblaApi],
   );
 
   return (
@@ -117,7 +86,6 @@ export default function MainImage({
       onTouchEnd={() => setIsPaused(false)}
     >
       {/* EMBLA VIEWPORT */}
-
       <div ref={emblaRef} className="h-full w-full overflow-hidden">
         <div className="flex h-full touch-pan-y">
           {displayImages.map((image, index) => {
@@ -128,53 +96,44 @@ export default function MainImage({
                 key={`${image}-${index}`}
                 className="relative h-full min-w-0 flex-[0_0_100%]"
               >
-                {/* IMAGE */}
-
+                {/* Ken Burns + fade + blur via Motion */}
                 <motion.img
                   src={image}
                   alt={`Slide ${index + 1}`}
                   draggable={false}
                   className="pointer-events-none absolute inset-0 h-full w-full select-none object-cover"
-                  variants={activeTransition.variants}
-                  initial={activeTransition.enterVariant}
-                  animate={
-                    isActive
-                      ? activeTransition.activeVariant
-                      : activeTransition.inactiveVariant
-                  }
-                />
-
-                {/* CINEMATIC GRADIENT */}
-
-                <motion.div
-                  className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-black/40"
+                  initial={false}
                   animate={{
-                    opacity: isActive ? 1 : 0.5,
+                    scale: isActive ? 1.12 : 1.02,
+                    opacity: isActive ? 1 : 0.55,
+                    filter: isActive ? "blur(0px)" : "blur(6px)",
                   }}
                   transition={{
-                    duration: 0.9,
-                    ease: "easeOut",
+                    scale: {
+                      duration: isActive ? AUTOPLAY_MS / 1000 + 1 : 1.2,
+                      ease: "easeOut",
+                    },
+                    opacity: { duration: 0.9, ease: "easeOut" },
+                    filter: { duration: 0.9, ease: "easeOut" },
                   }}
                 />
 
-                {/* SHINE */}
+                {/* Cinematic gradient overlay */}
+                <motion.div
+                  className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-black/40"
+                  animate={{ opacity: isActive ? 1 : 0.5 }}
+                  transition={{ duration: 0.9, ease: "easeOut" }}
+                />
 
+                {/* Shine sweep on active slide */}
                 <AnimatePresence>
                   {isActive && (
                     <motion.div
                       key={`shine-${index}-${selectedIndex}`}
                       className="pointer-events-none absolute -inset-y-10 -left-1/3 w-1/3 rotate-12 bg-gradient-to-r from-transparent via-white/25 to-transparent"
-                      initial={{
-                        x: "-40%",
-                        opacity: 0,
-                      }}
-                      animate={{
-                        x: "260%",
-                        opacity: [0, 1, 0],
-                      }}
-                      exit={{
-                        opacity: 0,
-                      }}
+                      initial={{ x: "-40%", opacity: 0 }}
+                      animate={{ x: "260%", opacity: [0, 1, 0] }}
+                      exit={{ opacity: 0 }}
                       transition={{
                         duration: 1.6,
                         ease: [0.22, 1, 0.36, 1],
@@ -189,18 +148,13 @@ export default function MainImage({
         </div>
       </div>
 
-      {/* PROGRESS BAR */}
-
+      {/* PROGRESS BAR (autoplay) */}
       <div className="pointer-events-none absolute left-0 top-0 h-[2px] w-full overflow-hidden bg-white/10">
         <motion.div
           key={`${selectedIndex}-${isPaused}`}
           className="h-full bg-gradient-to-r from-orange-400 to-orange-600"
-          initial={{
-            width: "0%",
-          }}
-          animate={{
-            width: isPaused ? "0%" : "100%",
-          }}
+          initial={{ width: "0%" }}
+          animate={{ width: isPaused ? "0%" : "100%" }}
           transition={{
             duration: isPaused ? 0.3 : AUTOPLAY_MS / 1000,
             ease: "linear",
@@ -209,55 +163,43 @@ export default function MainImage({
       </div>
 
       {/* SLIDE INDICATORS */}
+      {displayImages.length > 1 && (
+        <div className="absolute bottom-40 left-1/2 z-20 flex -translate-x-1/2 items-center gap-2">
+          {displayImages.map((_, index) => {
+            const isActive = index === selectedIndex;
 
-      <div className="absolute bottom-40 left-1/2 z-20 flex -translate-x-1/2 items-center gap-2">
-        {displayImages.map((_, index) => {
-          const isActive = index === selectedIndex;
-
-          return (
-            <button
-              key={index}
-              type="button"
-              onClick={() => scrollTo(index)}
-              className="relative flex h-2 items-center overflow-hidden rounded-full bg-white/30 backdrop-blur-sm"
-              aria-label={`Go to slide ${index + 1}`}
-            >
-              <motion.span
-                className="block h-full rounded-full bg-white shadow-[0_0_10px_rgba(255,255,255,0.6)]"
-                animate={{
-                  width: isActive ? 28 : 8,
-                }}
-                transition={{
-                  duration: 0.45,
-                  ease: [0.22, 1, 0.36, 1],
-                }}
-              />
-            </button>
-          );
-        })}
-      </div>
+            return (
+              <button
+                key={index}
+                type="button"
+                onClick={() => scrollTo(index)}
+                className="relative flex h-2 items-center overflow-hidden rounded-full bg-white/30 backdrop-blur-sm"
+                aria-label={`Go to slide ${index + 1}`}
+              >
+                <motion.span
+                  className="block h-full rounded-full bg-white shadow-[0_0_10px_rgba(255,255,255,0.6)]"
+                  animate={{ width: isActive ? 28 : 8 }}
+                  transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
+                />
+              </button>
+            );
+          })}
+        </div>
+      )}
 
       {/* COUNTER CHIP */}
-
-      <motion.div
-        key={selectedIndex}
-        initial={{
-          opacity: 0,
-          y: -6,
-        }}
-        animate={{
-          opacity: 1,
-          y: 0,
-        }}
-        transition={{
-          duration: 0.4,
-          ease: "easeOut",
-        }}
-        className="pointer-events-none absolute right-3 top-3 z-20 rounded-full bg-black/40 px-2.5 py-1 text-[11px] font-medium text-white backdrop-blur-md"
-      >
-        {String(selectedIndex + 1).padStart(2, "0")} /{" "}
-        {String(displayImages.length).padStart(2, "0")}
-      </motion.div>
+      {displayImages.length > 1 && (
+        <motion.div
+          key={selectedIndex}
+          initial={{ opacity: 0, y: -6 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4, ease: "easeOut" }}
+          className="pointer-events-none absolute right-3 top-3 z-20 rounded-full bg-black/40 px-2.5 py-1 text-[11px] font-medium text-white backdrop-blur-md"
+        >
+          {String(selectedIndex + 1).padStart(2, "0")} /{" "}
+          {String(displayImages.length).padStart(2, "0")}
+        </motion.div>
+      )}
     </div>
   );
 }

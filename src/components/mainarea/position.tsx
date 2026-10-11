@@ -1,13 +1,10 @@
-import {
-
-  Circle,
-  CircleDot,
-  Users,
-} from "lucide-react";
+// src/components/mainarea/position.tsx
+import { Circle, CircleDot, Users } from "lucide-react";
 
 type PositionProps = {
   date: Date;
   position: number;
+  loading?: boolean;
   selected?: boolean;
   onPress?: () => void;
 };
@@ -15,6 +12,7 @@ type PositionProps = {
 export default function Position({
   date,
   position,
+  loading = false,
   selected = false,
   onPress,
 }: PositionProps) {
@@ -35,7 +33,9 @@ export default function Position({
 
   const dayNumber = date.getDate();
 
-  const peopleAhead = Math.max(position - 1, 0);
+  // highest_ticket_index used as-is: the count of people already in
+  // that day's queue. So position === peopleAhead.
+  const peopleAhead = position;
 
   return (
     <button
@@ -71,9 +71,13 @@ export default function Position({
         <div className="flex items-center gap-1 mt-1 text-xs text-zinc-400">
           <Users size={12} />
 
-          {peopleAhead === 0
+          {loading
+            ? "Loading…"
+            : peopleAhead === 0
             ? "No one ahead"
-            : `${peopleAhead} ${peopleAhead === 1 ? "person" : "people"} ahead`}
+            : `${peopleAhead} ${
+                peopleAhead === 1 ? "person" : "people"
+              } ahead`}
         </div>
       </div>
 

@@ -1,5 +1,6 @@
-
+import { useEffect, useState } from "react";
 import { motion } from "motion/react";
+import { supabase } from "../../lib/superbase"; // adjust path
 
 type Booking = {
   serviceName: string;
@@ -7,31 +8,51 @@ type Booking = {
   date: Date;
 };
 
-type BookingsProps = {
-  bookings?: Booking[];
+// Raw shape returned by the RPC
+type BookingRow = {
+  service_name: string;
+  name: string;
+  booking_date: string;
 };
 
-const defaultBookings: Booking[] = [
-  {
-    serviceName: "Haircut + Beard",
-    userName: "John Mokoena",
-    date: new Date(),
-  },
-  {
-    serviceName: "Haircut",
-    userName: "Thabo Nkosi",
-    date: new Date(Date.now() + 86400000),
-  },
-  {
-    serviceName: "Beard Trim",
-    userName: "Sipho Khumalo",
-    date: new Date(Date.now() + 172800000),
-  },
-];
+export default function Bookings() {
+  const [bookings, setBookings] = useState<Booking[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-export default function Bookings({
-  bookings = defaultBookings,
-}: BookingsProps) {
+  useEffect(() => {
+    const fetchBookings = async () => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!user) {
+        setError("No user logged in");
+        setLoading(false);
+        return;
+      }
+
+      const { data, error } = await supabase.rpc("get_barber_booking_details", {
+        p_barber_id: user.id, // logged-in user is the barber
+      });
+
+      if (error) {
+        console.error(error);
+        setError(error.message);
+      } else {
+        const mapped: Booking[] = ((data ?? []) as BookingRow[]).map((row) => ({
+          serviceName: row.service_name,
+          userName: row.name,
+          date: new Date(row.booking_date),
+        }));
+        setBookings(mapped);
+      }
+      setLoading(false);
+    };
+
+    fetchBookings();
+  }, []);
+
   return (
     <div className="flex flex-col h-full bg-zinc-950">
       {/* Header */}
@@ -41,7 +62,15 @@ export default function Bookings({
 
       {/* List */}
       <div className="flex-1 overflow-y-auto px-4 pb-4 flex flex-col gap-2">
-        {bookings.length === 0 && (
+        {loading && (
+          <p className="text-white/50 text-sm text-center py-8">Loading...</p>
+        )}
+
+        {!loading && error && (
+          <p className="text-red-400 text-sm text-center py-8">{error}</p>
+        )}
+
+        {!loading && !error && bookings.length === 0 && (
           <p className="text-white/50 text-sm text-center py-8">
             No bookings yet
           </p>

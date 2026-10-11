@@ -1,18 +1,26 @@
+// src/components/mainarea/mainnav.tsx
 import { useState } from "react";
 import { Heart, MessageCircle, Share2, Star } from "lucide-react";
 
 type MainNavProps = {
+  /** Per-post avatar URL. Resolved by the feed loader. */
   userImage?: string;
+  /** Per-post barber id — used when the avatar is tapped. */
+  barberId?: string;
   likes?: number;
   comments?: number;
   favourites?: number;
   shares?: number;
-  onUserPress?: () => void;
+  /** Called with the poster's barber id when the avatar is tapped. */
+  onUserPress?: (barberId?: string) => void;
   onCommentsPress?: () => void;
 };
 
+const FALLBACK_AVATAR = "https://i.pravatar.cc/100";
+
 export default function MainNav({
-  userImage = "https://i.pravatar.cc/100",
+  userImage,
+  barberId,
   likes = 0,
   comments = 0,
   favourites = 0,
@@ -24,6 +32,8 @@ export default function MainNav({
   const [favourited, setFavourited] = useState(false);
   const [likeBurst, setLikeBurst] = useState(false);
   const [favBurst, setFavBurst] = useState(false);
+
+  const resolvedUserImage = userImage ?? FALLBACK_AVATAR;
 
   const handleLike = () => {
     setLiked((prev) => !prev);
@@ -48,11 +58,11 @@ export default function MainNav({
     <div className="absolute bottom-40 right-4 z-10 flex flex-col items-center">
       <button
         type="button"
-        onClick={onUserPress}
+        onClick={() => onUserPress?.(barberId)}
         className="mb-5 flex flex-col items-center"
       >
         <img
-          src={userImage}
+          src={resolvedUserImage}
           className="h-10 w-10 rounded-full object-cover"
           alt="User"
         />
