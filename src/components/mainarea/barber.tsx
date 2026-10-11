@@ -6,6 +6,7 @@ import MainImage from "./barberimage";
 import CreatePost, { type Category } from "./createpost";
 
 type Service = {
+  id: string;
   image: string;
   name: string;
   price: number | string;
