@@ -27,7 +27,7 @@ import BarberProfileSetup from "./components/sidebar/barber_set_profile";
 import RefundsPolicy from "./components/mainarea/refundspolicy";
 import PrivacyPolicy from "./components/mainarea/privacypolicys";
 import TermsPolicy from "./components/mainarea/termspolicys";
-import CreatePost, { type Category } from "./components/mainarea/createpost";
+import type { Category } from "./components/mainarea/createpost";
 import PostCard from "./components/mainarea/PostCard";
 
 const MUSIC_SRC = "/u_iu7xltufu1-sikhala-sonke-prodbywizlee-166112.mp3"; // from /public
@@ -79,7 +79,6 @@ export default function App() {
   const [showComments, setShowComments] = useState(false);
   const [showSidebar, setShowSidebar] = useState(false);
   const [showSignUp, setShowSignUp] = useState(false);
-  const [showCreatePost, setShowCreatePost] = useState(false);
   const [showSearch, setShowSearch] = useState(false);
   const [comments, setComments] = useState<Comment[]>([]);
 
@@ -521,7 +520,9 @@ export default function App() {
         result.post.id,
         `${result.media.length} media`,
       );
-      setShowCreatePost(false);
+
+      // Return to the home feed after a successful post.
+      setView("home");
 
       try {
         const rows = await getFeedPosts(supabase, { limit: PAGE_SIZE });
@@ -598,6 +599,18 @@ export default function App() {
   // Profile icon tap in the bottom footer — opens the sidebar.
   const handleOpenSidebar = () => {
     setShowSidebar(true);
+  };
+
+  // White create-post icon on the home feed — mirrors the avatar path
+  // exactly: opens the barber screen in isBarber mode, which renders
+  // CreatePost with its back button.
+  const handleOpenCreatePost = () => {
+    if (!user) return;
+    captureActivePostIndex();
+    setViewingBarberId(user.id);
+    setViewingBarberName(null);
+    setViewingBarberAvatar(null);
+    setView("barber");
   };
 
   /* ---------- Derived ---------- */
@@ -930,7 +943,6 @@ export default function App() {
                       }}
                       onUserPress={() => handleOpenBarberProfile(post)}
                       onSidebarPress={handleOpenSidebar}
-                      
                     />
                   );
                 })}
@@ -944,11 +956,12 @@ export default function App() {
             </>
           )}
 
-          {/* Barber-only floating create-post button */}
+          {/* Barber-only floating create-post button — mirrors the avatar
+              path so it lands on the same BarberScreen create-post view. */}
           {isBarber && (
             <motion.button
               type="button"
-              onClick={() => setShowCreatePost(true)}
+              onClick={handleOpenCreatePost}
               className="absolute bottom-28 right-4 z-30 flex h-14 w-14 items-center justify-center rounded-full bg-white text-black shadow-lg"
               whileTap={{ scale: 0.92 }}
               whileHover={{ scale: 1.05 }}
@@ -1014,21 +1027,6 @@ export default function App() {
           </AnimatePresence>
         </div>
       )}
-
-      <AnimatePresence>
-        {showCreatePost && (
-          <motion.div
-            key="create-post"
-            initial={{ opacity: 0, y: 24 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 24 }}
-            transition={{ type: "spring", stiffness: 300, damping: 30 }}
-            className="fixed inset-0 z-50 bg-zinc-950"
-          >
-            <CreatePost onPost={handleCreatePost} />
-          </motion.div>
-        )}
-      </AnimatePresence>
     </>
   );
 }
