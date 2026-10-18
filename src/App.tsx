@@ -80,6 +80,7 @@ export default function App() {
   const [showSidebar, setShowSidebar] = useState(false);
   const [showSignUp, setShowSignUp] = useState(false);
   const [showSearch, setShowSearch] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
   const [comments, setComments] = useState<Comment[]>([]);
 
   /* ---------- Feed state ---------- */
@@ -107,8 +108,8 @@ export default function App() {
   // The barber whose profile the signed-in user is currently viewing.
   const [viewingBarberId, setViewingBarberId] = useState<string | null>(null);
 
-  // Poster info captured from the tapped post so the barber header
-  // matches what Description showed on the feed.
+  // Poster info captured from the tapped post / search result so the
+  // barber header matches what the user just tapped.
   const [viewingBarberName, setViewingBarberName] = useState<string | null>(
     null,
   );
@@ -596,6 +597,23 @@ export default function App() {
     setView("barber");
   };
 
+  // Search result tap → open that barber's profile.
+  // Mirrors handleOpenBarberProfile, but the data comes from the RPC
+  // instead of a feed post. Also closes the search overlay.
+  const handleOpenBarberFromSearch = (barber: {
+    id: string;
+    name: string;
+    avatarUrl: string;
+  }) => {
+    captureActivePostIndex();
+    setShowSearch(false);
+    setSearchTerm("");
+    setViewingBarberId(barber.id);
+    setViewingBarberName(barber.name);
+    setViewingBarberAvatar(barber.avatarUrl);
+    setView("barber");
+  };
+
   // Profile icon tap in the bottom footer — opens the sidebar.
   const handleOpenSidebar = () => {
     setShowSidebar(true);
@@ -611,6 +629,18 @@ export default function App() {
     setViewingBarberName(null);
     setViewingBarberAvatar(null);
     setView("barber");
+  };
+
+  // Search overlay open — always start with a clean slate.
+  const handleOpenSearch = () => {
+    setSearchTerm("");
+    setShowSearch(true);
+  };
+
+  // Search overlay close — clear the term so reopening starts fresh.
+  const handleCloseSearch = () => {
+    setShowSearch(false);
+    setSearchTerm("");
   };
 
   /* ---------- Derived ---------- */
@@ -828,7 +858,7 @@ export default function App() {
             <motion.button
               type="button"
               aria-label="Search"
-              onClick={() => setShowSearch(true)}
+              onClick={handleOpenSearch}
               className="absolute left-3 top-0 flex h-9 w-9 items-center justify-center rounded-full bg-black/40 backdrop-blur-md"
               whileTap={{ scale: 0.92 }}
               whileHover={{ scale: 1.05 }}
@@ -956,8 +986,7 @@ export default function App() {
             </>
           )}
 
-          {/* Barber-only floating create-post button — mirrors the avatar
-              path so it lands on the same BarberScreen create-post view. */}
+          {/* Barber-only floating create-post button */}
           {isBarber && (
             <motion.button
               type="button"
@@ -1005,7 +1034,7 @@ export default function App() {
                 <div className="flex items-center gap-3 border-b border-white/10 p-3">
                   <button
                     type="button"
-                    onClick={() => setShowSearch(false)}
+                    onClick={handleCloseSearch}
                     className="text-white text-2xl leading-none px-1"
                     aria-label="Close search"
                   >
@@ -1016,11 +1045,16 @@ export default function App() {
                     placeholder="Search barbers…"
                     className="flex-1 bg-transparent text-white placeholder-white/40 outline-none"
                     autoFocus
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
                   />
                 </div>
 
                 <div className="flex-1 min-h-0">
-                  <ResultsList />
+                  <ResultsList
+                    searchTerm={searchTerm}
+                    onBarberPress={handleOpenBarberFromSearch}
+                  />
                 </div>
               </motion.div>
             )}

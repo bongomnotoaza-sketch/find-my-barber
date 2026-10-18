@@ -1,18 +1,25 @@
+// src/components/mainarea/searchresult.tsx
 import { Check } from "lucide-react";
 
 type MusicPlayerProps = {
   image: string;
   barberName: string;
   bio: string;
+  onPress?: () => void;
 };
 
 export default function MusicPlayer({
   image,
   barberName,
   bio,
+  onPress,
 }: MusicPlayerProps) {
   return (
-    <div className="w-full h-full grid grid-rows-[70%_30%]">
+    <button
+      type="button"
+      onClick={onPress}
+      className="w-full h-full grid grid-rows-[70%_30%] text-left active:opacity-90"
+    >
       {/* Top section: Image */}
       <div className="w-full h-full overflow-hidden">
         <img
@@ -32,11 +39,7 @@ export default function MusicPlayer({
 
           {/* Blue badge with white tick */}
           <div className="w-4 h-4 shrink-0 rounded-full bg-blue-500 flex items-center justify-center">
-            <Check
-              size={11}
-              strokeWidth={3}
-              className="text-white"
-            />
+            <Check size={11} strokeWidth={3} className="text-white" />
           </div>
         </div>
 
@@ -45,6 +48,6 @@ export default function MusicPlayer({
           {bio}
         </p>
       </div>
-    </div>
+    </button>
   );
 }
