@@ -76,7 +76,7 @@ export default function ResultsList({
       const mapped: Result[] = rows.map((row) => ({
         id: row.id,
         image: row.avatar_path
-          ? getAvatarUrl(row.avatar_path, "avatars")
+          ? getAvatarUrl(row.avatar_path, "avatars") ?? FALLBACK_IMAGE
           : FALLBACK_IMAGE,
         barberName: row.display_name ?? "Barber",
         bio: row.bio ?? "",
