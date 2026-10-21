@@ -112,7 +112,7 @@ export default function Tickets() {
               {/* Top row: ID + Status */}
               <div className="flex items-center gap-3">
                 <span className="text-sm font-bold text-white">
-                  {ticket.id}
+                  #{ticket.id.slice(0, 6).toUpperCase()}
                 </span>
 
                 <span

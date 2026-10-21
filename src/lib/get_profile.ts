@@ -9,6 +9,8 @@ export type Profile = {
   display_name: string | null;
   avatar_path: string | null;
   bio: string | null;
+  email: string | null;
+  phone_number: string | null;
 };
 
 export type ProfileResult =
@@ -17,15 +19,6 @@ export type ProfileResult =
 
 /* ---------- Fetch the logged-in user's profile ---------- */
 
-/**
- * Fetches `display_name`, `avatar_path`, and `bio` from the `profiles`
- * table for the currently authenticated user.
- *
- * Usage:
- *   const result = await getMyProfile();
- *   if (!result.ok) return <p>{result.reason}</p>;
- *   const { display_name, avatar_path, bio } = result.profile;
- */
 export async function getMyProfile(): Promise<ProfileResult> {
   const {
     data: { user },
@@ -39,9 +32,9 @@ export async function getMyProfile(): Promise<ProfileResult> {
 
   const { data, error } = await supabase
     .from("profiles")
-    .select("id, display_name, avatar_path, bio")
+    .select("id, display_name, avatar_path, bio, email, phone_number")
     .eq("id", user.id)
-    .maybeSingle(); // returns null instead of erroring on 0 rows
+    .maybeSingle();
 
   if (error) {
     console.error("profiles query failed:", error);
@@ -57,20 +50,10 @@ export async function getMyProfile(): Promise<ProfileResult> {
 
 /* ---------- Fetch any profile by id ---------- */
 
-/**
- * Fetches `display_name`, `avatar_path`, and `bio` from the `profiles`
- * table for an arbitrary user id (which equals the auth uid).
- *
- * Returns `null` if the row is missing or the query errors.
- *
- * Usage:
- *   const profile = await getProfileById(post.barber_id);
- *   const name = profile?.display_name ?? "Barber Name";
- */
 export async function getProfileById(id: string): Promise<Profile | null> {
   const { data, error } = await supabase
     .from("profiles")
-    .select("id, display_name, avatar_path, bio")
+    .select("id, display_name, avatar_path, bio, email, phone_number")
     .eq("id", id)
     .maybeSingle();
 
@@ -84,10 +67,6 @@ export async function getProfileById(id: string): Promise<Profile | null> {
 
 /* ---------- Convenience: just the fields ---------- */
 
-/**
- * Returns the profile fields directly, or `null` if not signed in / missing.
- * Useful when you don't need the error reason.
- */
 export async function getMyProfileFields(): Promise<Profile | null> {
   const result = await getMyProfile();
   return result.ok ? result.profile : null;
@@ -95,10 +74,6 @@ export async function getMyProfileFields(): Promise<Profile | null> {
 
 /* ---------- Optional: resolve the avatar to a public URL ---------- */
 
-/**
- * If `avatar_path` is stored in a Supabase Storage bucket, this converts
- * it into a public URL. Adjust the bucket name to match your setup.
- */
 export function getAvatarUrl(
   avatarPath: string | null,
   bucket = "avatars"

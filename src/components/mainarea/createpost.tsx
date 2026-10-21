@@ -6,6 +6,9 @@ import {
   Send,
   X,
 } from "lucide-react";
+import { supabase } from "../../lib/superbase";
+import { getPostByBarber, type PostWithMedia } from "../../lib/get_posts";
+import { SONGS, getSong, type Song } from "../../lib/songs";
 
 const MAX_IMAGES = 5;
 const MAX_SIZE_MB = 10;
@@ -14,7 +17,6 @@ const ACCEPT = "image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.hei
 
 const MAX_DESCRIPTION = 500;
 
-// Default categories for a barber service.
 const CATEGORIES = [
   "Haircut",
   "Beard Trim",
@@ -32,19 +34,26 @@ export type Category = (typeof CATEGORIES)[number];
 
 type Item = {
   id: string;
-  file: File;
+  file: File | null;
   url: string;
+  savedMediaId: string | null;
 };
+
+export type OrderedMedia =
+  | { kind: "saved"; mediaId: string; url: string }
+  | { kind: "new"; fileIndex: number; file: File; url: string };
 
 type CreatePostProps = {
   onPost?: (
-    images: File[],
+    orderedMedia: OrderedMedia[],
     description: string,
-    category: Category | null
+    category: Category | null,
+    existingPostId: string | null,
+    songId: string | null,
   ) => void | Promise<void>;
+  barberId?: string;
 };
 
-// File.type is sometimes empty for HEIC, so fall back to the extension.
 const isAllowedImage = (file: File) =>
   /^image\/(jpeg|png|webp|heic|heif)$/.test(file.type) ||
   /\.(jpe?g|png|webp|heic|heif)$/i.test(file.name);
@@ -52,12 +61,24 @@ const isAllowedImage = (file: File) =>
 const hasFiles = (event: React.DragEvent) =>
   Array.from(event.dataTransfer.types).includes("Files");
 
-export default function CreatePost({ onPost }: CreatePostProps) {
+/* ---------- Playing indicator ---------- */
+
+function PlayingDot() {
+  return (
+    <span className="relative flex h-2 w-2">
+      <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-current opacity-60" />
+      <span className="relative inline-flex h-2 w-2 rounded-full bg-current" />
+    </span>
+  );
+}
+
+export default function CreatePost({ onPost, barberId }: CreatePostProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [items, setItems] = useState<Item[]>([]);
   const [description, setDescription] = useState("");
   const [category, setCategory] = useState<Category | null>(null);
+  const [song, setSong] = useState<Song | null>(null);
   const [isPosting, setIsPosting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -65,14 +86,120 @@ export default function CreatePost({ onPost }: CreatePostProps) {
   const [draggedId, setDraggedId] = useState<string | null>(null);
   const [dropTargetId, setDropTargetId] = useState<string | null>(null);
 
-  // Release all object URLs on unmount.
+  /* ---------- Existing post (edit mode) ---------- */
+
+  const [existingPost, setExistingPost] = useState<PostWithMedia | null>(null);
+  const [loadingExisting, setLoadingExisting] = useState(!!barberId);
+  const [existingError, setExistingError] = useState<string | null>(null);
+
+  const isEditMode = existingPost !== null;
+
+  /* ---------- Song preview ---------- */
+
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  const stopPreview = () => {
+    const a = audioRef.current;
+    if (!a) return;
+    a.pause();
+    a.removeAttribute("src");
+    a.load();
+    audioRef.current = null;
+  };
+
+  const playPreview = (src: string) => {
+    stopPreview();
+    const a = new Audio(src);
+    a.loop = true;
+    a.volume = 0.6;
+    audioRef.current = a;
+    a.play().catch((err) =>
+      console.warn("Song preview failed:", err.name, err.message),
+    );
+  };
+
+  const togglePreview = (s: Song) => {
+    if (song?.id === s.id) {
+      stopPreview();
+      setSong(null);
+    } else {
+      setSong(s);
+      playPreview(s.src);
+    }
+  };
+
+  /* ---------- Cleanup: object URLs + audio ---------- */
+
   const itemsRef = useRef(items);
   itemsRef.current = items;
+
   useEffect(() => {
     return () => {
-      itemsRef.current.forEach((item) => URL.revokeObjectURL(item.url));
+      itemsRef.current.forEach((item) => {
+        if (item.file) URL.revokeObjectURL(item.url);
+      });
+      stopPreview();
     };
   }, []);
+
+  /* ---------- Fetch existing post ---------- */
+
+  useEffect(() => {
+    if (!barberId) {
+      setLoadingExisting(false);
+      setExistingPost(null);
+      return;
+    }
+
+    let cancelled = false;
+    setLoadingExisting(true);
+    setExistingError(null);
+
+    (async () => {
+      try {
+        const post = await getPostByBarber(supabase, barberId);
+        if (cancelled) return;
+
+        setExistingPost(post);
+
+        if (post) {
+          setDescription(post.description ?? "");
+
+          if (
+            post.category &&
+            (CATEGORIES as readonly string[]).includes(post.category)
+          ) {
+            setCategory(post.category as Category);
+          }
+
+          if (post.song) {
+            const s = getSong(post.song);
+            if (s) setSong(s);
+          }
+
+          setItems(
+            post.media.map((m) => ({
+              id: `saved-${m.id}`,
+              file: null,
+              url: m.image_url,
+              savedMediaId: m.id,
+            })),
+          );
+        }
+      } catch (err) {
+        if (cancelled) return;
+        setExistingError(
+          err instanceof Error ? err.message : "Failed to load your post.",
+        );
+      } finally {
+        if (!cancelled) setLoadingExisting(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [barberId]);
 
   const isFull = items.length >= MAX_IMAGES;
   const openPicker = () => fileInputRef.current?.click();
@@ -98,7 +225,7 @@ export default function CreatePost({ onPost }: CreatePostProps) {
     const accepted = sizeOk.slice(0, slots);
     if (sizeOk.length > slots) {
       problems.push(
-        `You can add up to ${MAX_IMAGES} images. ${sizeOk.length - slots} skipped.`
+        `You can add up to ${MAX_IMAGES} images. ${sizeOk.length - slots} skipped.`,
       );
     }
 
@@ -111,6 +238,7 @@ export default function CreatePost({ onPost }: CreatePostProps) {
           id: crypto.randomUUID(),
           file,
           url: URL.createObjectURL(file),
+          savedMediaId: null,
         })),
       ]);
     }
@@ -125,9 +253,11 @@ export default function CreatePost({ onPost }: CreatePostProps) {
 
   const removeImage = (id: string) => {
     if (isPosting) return;
-    const target = items.find((item) => item.id === id);
-    if (target) URL.revokeObjectURL(target.url);
-    setItems((current) => current.filter((item) => item.id !== id));
+    setItems((current) => {
+      const target = current.find((item) => item.id === id);
+      if (target && target.file) URL.revokeObjectURL(target.url);
+      return current.filter((item) => item.id !== id);
+    });
     setError(null);
   };
 
@@ -192,20 +322,48 @@ export default function CreatePost({ onPost }: CreatePostProps) {
     setIsPosting(true);
 
     try {
-      await onPost?.(
-        items.map((item) => item.file),
-        description.trim(),
-        category
+      const newFiles = items.filter(
+        (it): it is Item & { file: File } => it.file !== null,
       );
-      items.forEach((item) => URL.revokeObjectURL(item.url));
+      const fileIndexById = new Map(newFiles.map((it, i) => [it.id, i]));
+
+      const orderedMedia: OrderedMedia[] = items.map((it) => {
+        if (it.file) {
+          return {
+            kind: "new",
+            fileIndex: fileIndexById.get(it.id)!,
+            file: it.file,
+            url: it.url,
+          };
+        }
+        return {
+          kind: "saved",
+          mediaId: it.savedMediaId!,
+          url: it.url,
+        };
+      });
+
+      await onPost?.(
+        orderedMedia,
+        description.trim(),
+        category,
+        existingPost?.id ?? null,
+        song?.id ?? null,
+      );
+
+      stopPreview();
+      items.forEach((it) => {
+        if (it.file) URL.revokeObjectURL(it.url);
+      });
       setItems([]);
       setDescription("");
       setCategory(null);
+      setSong(null);
     } catch (err) {
       setError(
         err instanceof Error && err.message
           ? err.message
-          : "Couldn't publish your post. Check your connection and try again."
+          : "Couldn't publish your post. Check your connection and try again.",
       );
     } finally {
       setIsPosting(false);
@@ -225,8 +383,12 @@ export default function CreatePost({ onPost }: CreatePostProps) {
       {/* Header */}
       <div className="flex shrink-0 items-center justify-between border-b border-white/10 px-5 py-4">
         <div>
-          <h1 className="text-lg font-semibold text-white">Create Post</h1>
-          <p className="mt-0.5 text-sm text-white/50">Share your latest work</p>
+          <h1 className="text-lg font-semibold text-white">
+            {isEditMode ? "Edit Post" : "Create Post"}
+          </h1>
+          <p className="mt-0.5 text-sm text-white/50">
+            {isEditMode ? "Update your existing post" : "Share your latest work"}
+          </p>
         </div>
 
         {items.length > 0 && (
@@ -243,222 +405,313 @@ export default function CreatePost({ onPost }: CreatePostProps) {
         onDragLeave={handleZoneDragLeave}
         onDrop={handleZoneDrop}
       >
-        {/* Images */}
-        <div className="flex flex-1 items-center justify-center">
-          {items.length > 0 ? (
-            <div className="w-full max-w-2xl">
-              <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-                {items.map((item, index) => {
-                  const isDragged = draggedId === item.id;
-                  const isTarget =
-                    dropTargetId === item.id && draggedId !== item.id;
+        {loadingExisting && (
+          <div className="flex flex-1 items-center justify-center text-sm text-white/50">
+            Loading your existing post…
+          </div>
+        )}
 
-                  return (
-                    <li
-                      key={item.id}
-                      draggable={!isPosting && items.length > 1}
-                      onDragStart={(event) => {
-                        setDraggedId(item.id);
-                        event.dataTransfer.effectAllowed = "move";
-                        // Firefox needs data set for a drag to start.
-                        event.dataTransfer.setData("text/plain", item.id);
-                      }}
-                      onDragOver={(event) => {
-                        if (!draggedId) return;
-                        event.preventDefault();
-                        setDropTargetId(item.id);
-                      }}
-                      onDrop={(event) => handleTileDrop(event, item.id)}
-                      onDragEnd={endTileDrag}
-                      className={`group relative aspect-square overflow-hidden rounded-2xl bg-black transition ${
-                        isDragged ? "opacity-40" : ""
-                      } ${isTarget ? "ring-2 ring-white/70" : ""}`}
-                    >
-                      <img
-                        src={item.url}
-                        alt={`Post image ${index + 1} of ${items.length}`}
-                        draggable={false}
-                        className="h-full w-full object-cover"
-                      />
+        {existingError && (
+          <p role="alert" className="mb-3 text-sm text-red-400">
+            {existingError}
+          </p>
+        )}
 
-                      {/* Remove */}
-                      <button
-                        type="button"
-                        onClick={() => removeImage(item.id)}
-                        disabled={isPosting}
-                        className="absolute right-2 top-2 flex h-8 w-8 items-center justify-center rounded-full bg-black/70 text-white backdrop-blur-md transition hover:bg-black disabled:opacity-40"
-                        aria-label={`Remove image ${index + 1}`}
-                      >
-                        <X size={16} />
-                      </button>
+        {!loadingExisting && (
+          <>
+            {/* Images */}
+            <div className="flex flex-1 items-center justify-center">
+              {items.length > 0 ? (
+                <div className="w-full max-w-2xl">
+                  <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                    {items.map((item, index) => {
+                      const isDragged = draggedId === item.id;
+                      const isTarget =
+                        dropTargetId === item.id && draggedId !== item.id;
+                      const isSaved = item.savedMediaId !== null;
 
-                      {/* Position */}
-                      <div className="absolute bottom-2 left-2 rounded-full bg-black/60 px-2 py-1 text-[10px] font-medium text-white backdrop-blur-md">
-                        {index === 0 ? "Cover" : index + 1}
-                      </div>
+                      return (
+                        <li
+                          key={item.id}
+                          draggable={!isPosting && items.length > 1}
+                          onDragStart={(event) => {
+                            setDraggedId(item.id);
+                            event.dataTransfer.effectAllowed = "move";
+                            event.dataTransfer.setData("text/plain", item.id);
+                          }}
+                          onDragOver={(event) => {
+                            if (!draggedId) return;
+                            event.preventDefault();
+                            setDropTargetId(item.id);
+                          }}
+                          onDrop={(event) => handleTileDrop(event, item.id)}
+                          onDragEnd={endTileDrag}
+                          className={`group relative aspect-square overflow-hidden rounded-2xl bg-black transition ${
+                            isDragged ? "opacity-40" : ""
+                          } ${isTarget ? "ring-2 ring-white/70" : ""}`}
+                        >
+                          <img
+                            src={item.url}
+                            alt={`Post image ${index + 1} of ${items.length}`}
+                            draggable={false}
+                            className="h-full w-full object-cover"
+                          />
 
-                      {/* Reorder */}
-                      {items.length > 1 && (
-                        <div className="absolute bottom-2 right-2 flex gap-1 opacity-100 transition sm:opacity-0 sm:group-focus-within:opacity-100 sm:group-hover:opacity-100">
                           <button
                             type="button"
-                            onClick={() => moveImage(index, index - 1)}
-                            disabled={isPosting || index === 0}
-                            className="flex h-7 w-7 items-center justify-center rounded-full bg-black/70 text-white backdrop-blur-md transition hover:bg-black disabled:cursor-not-allowed disabled:opacity-30"
-                            aria-label={`Move image ${index + 1} earlier`}
+                            onClick={() => removeImage(item.id)}
+                            disabled={isPosting}
+                            className="absolute right-2 top-2 flex h-8 w-8 items-center justify-center rounded-full bg-black/70 text-white backdrop-blur-md transition hover:bg-black disabled:opacity-40"
+                            aria-label={`Remove image ${index + 1}`}
                           >
-                            <ChevronLeft size={16} />
+                            <X size={16} />
                           </button>
-                          <button
-                            type="button"
-                            onClick={() => moveImage(index, index + 1)}
-                            disabled={isPosting || index === items.length - 1}
-                            className="flex h-7 w-7 items-center justify-center rounded-full bg-black/70 text-white backdrop-blur-md transition hover:bg-black disabled:cursor-not-allowed disabled:opacity-30"
-                            aria-label={`Move image ${index + 1} later`}
-                          >
-                            <ChevronRight size={16} />
-                          </button>
-                        </div>
-                      )}
-                    </li>
-                  );
-                })}
 
-                {/* Add image */}
-                {!isFull && (
-                  <li>
-                    <button
-                      type="button"
-                      onClick={openPicker}
-                      disabled={isPosting}
-                      className={`${addTileClasses} aspect-square w-full ${
-                        isFileOver ? addTileActive : addTileIdle
-                      }`}
-                    >
-                      <ImagePlus size={28} strokeWidth={1.5} />
-                      <span className="mt-2 text-xs">
-                        {isFileOver ? "Drop to add" : "Add image"}
-                      </span>
-                    </button>
-                  </li>
-                )}
-              </ul>
+                          <div className="absolute bottom-2 left-2 rounded-full bg-black/60 px-2 py-1 text-[10px] font-medium text-white backdrop-blur-md">
+                            {index === 0 ? "Cover" : index + 1}
+                          </div>
 
-              {items.length > 1 && (
-                <p className="mt-3 text-xs text-white/40">
-                  Drag images or use the arrows to change their order. The first
-                  image is the cover.
-                </p>
+                          {isSaved && (
+                            <div className="absolute bottom-2 right-14 rounded-full bg-black/70 px-2 py-1 text-[10px] font-medium text-white/80 backdrop-blur-md">
+                              Saved
+                            </div>
+                          )}
+
+                          {items.length > 1 && (
+                            <div className="absolute bottom-2 right-2 flex gap-1 opacity-100 transition sm:opacity-0 sm:group-focus-within:opacity-100 sm:group-hover:opacity-100">
+                              <button
+                                type="button"
+                                onClick={() => moveImage(index, index - 1)}
+                                disabled={isPosting || index === 0}
+                                className="flex h-7 w-7 items-center justify-center rounded-full bg-black/70 text-white backdrop-blur-md transition hover:bg-black disabled:cursor-not-allowed disabled:opacity-30"
+                                aria-label={`Move image ${index + 1} earlier`}
+                              >
+                                <ChevronLeft size={16} />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => moveImage(index, index + 1)}
+                                disabled={
+                                  isPosting || index === items.length - 1
+                                }
+                                className="flex h-7 w-7 items-center justify-center rounded-full bg-black/70 text-white backdrop-blur-md transition hover:bg-black disabled:cursor-not-allowed disabled:opacity-30"
+                                aria-label={`Move image ${index + 1} later`}
+                              >
+                                <ChevronRight size={16} />
+                              </button>
+                            </div>
+                          )}
+                        </li>
+                      );
+                    })}
+
+                    {!isFull && (
+                      <li>
+                        <button
+                          type="button"
+                          onClick={openPicker}
+                          disabled={isPosting}
+                          className={`${addTileClasses} aspect-square w-full ${
+                            isFileOver ? addTileActive : addTileIdle
+                          }`}
+                        >
+                          <ImagePlus size={28} strokeWidth={1.5} />
+                          <span className="mt-2 text-xs">
+                            {isFileOver ? "Drop to add" : "Add image"}
+                          </span>
+                        </button>
+                      </li>
+                    )}
+                  </ul>
+
+                  {items.length > 1 && (
+                    <p className="mt-3 text-xs text-white/40">
+                      Drag images or use the arrows to change their order. The
+                      first image is the cover.
+                    </p>
+                  )}
+
+                  {isEditMode && (
+                    <p className="mt-2 text-xs text-amber-400/80">
+                      Saving replaces your post. Images you keep are only
+                      preserved if you re-add them as new uploads.
+                    </p>
+                  )}
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={openPicker}
+                  disabled={isPosting}
+                  className={`${addTileClasses} aspect-square w-full max-w-md ${
+                    isFileOver ? addTileActive : addTileIdle
+                  }`}
+                >
+                  <ImagePlus size={42} strokeWidth={1.5} />
+                  <span className="mt-4 text-sm font-medium">
+                    {isFileOver ? "Drop to add" : "Upload images"}
+                  </span>
+                  <span className="mt-1 text-xs text-white/40">
+                    Drag and drop or click. Up to {MAX_IMAGES} images,{" "}
+                    {MAX_SIZE_MB} MB each.
+                  </span>
+                </button>
               )}
             </div>
-          ) : (
-            <button
-              type="button"
-              onClick={openPicker}
-              disabled={isPosting}
-              className={`${addTileClasses} aspect-square w-full max-w-md ${
-                isFileOver ? addTileActive : addTileIdle
-              }`}
-            >
-              <ImagePlus size={42} strokeWidth={1.5} />
-              <span className="mt-4 text-sm font-medium">
-                {isFileOver ? "Drop to add" : "Upload images"}
-              </span>
-              <span className="mt-1 text-xs text-white/40">
-                Drag and drop or click. Up to {MAX_IMAGES} images, {MAX_SIZE_MB}{" "}
-                MB each.
-              </span>
-            </button>
-          )}
-        </div>
 
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept={ACCEPT}
-          multiple
-          onChange={handleInputChange}
-          className="hidden"
-        />
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept={ACCEPT}
+              multiple
+              onChange={handleInputChange}
+              className="hidden"
+            />
 
-        {/* Controls */}
-        <div className="mt-6 space-y-3">
-          {/* Category */}
-          <div>
-            <label className="mb-1.5 block text-xs font-medium text-white/60">
-              Category
-            </label>
-            <div className="flex flex-wrap gap-2">
-              {CATEGORIES.map((option) => {
-                const selected = category === option;
-                return (
+            {/* Controls */}
+            <div className="mt-6 space-y-3">
+              {/* Category */}
+              <div>
+                <label className="mb-1.5 block text-xs font-medium text-white/60">
+                  Category
+                </label>
+                <div className="flex flex-wrap gap-2">
+                  {CATEGORIES.map((option) => {
+                    const selected = category === option;
+                    return (
+                      <button
+                        key={option}
+                        type="button"
+                        disabled={isPosting}
+                        onClick={() =>
+                          setCategory((current) =>
+                            current === option ? null : option,
+                          )
+                        }
+                        aria-pressed={selected}
+                        className={`rounded-full border px-3 py-1.5 text-xs font-medium transition disabled:opacity-40 ${
+                          selected
+                            ? "border-white bg-white text-black"
+                            : "border-white/15 bg-white/[0.03] text-white/70 hover:border-white/40 hover:text-white"
+                        }`}
+                      >
+                        {option}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Song */}
+              <div>
+                <label className="mb-1.5 block text-xs font-medium text-white/60">
+                  Song
+                </label>
+                <div className="flex flex-wrap gap-2">
                   <button
-                    key={option}
                     type="button"
                     disabled={isPosting}
-                    onClick={() =>
-                      setCategory((current) =>
-                        current === option ? null : option
-                      )
-                    }
-                    aria-pressed={selected}
+                    onClick={() => {
+                      stopPreview();
+                      setSong(null);
+                    }}
+                    aria-pressed={song === null}
                     className={`rounded-full border px-3 py-1.5 text-xs font-medium transition disabled:opacity-40 ${
-                      selected
+                      song === null
                         ? "border-white bg-white text-black"
                         : "border-white/15 bg-white/[0.03] text-white/70 hover:border-white/40 hover:text-white"
                     }`}
                   >
-                    {option}
+                    No song
                   </button>
-                );
-              })}
+
+                  {SONGS.map((s) => {
+                    const selected = song?.id === s.id;
+                    return (
+                      <button
+                        key={s.id}
+                        type="button"
+                        disabled={isPosting}
+                        onClick={() => togglePreview(s)}
+                        aria-pressed={selected}
+                        className={`flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-medium transition disabled:opacity-40 ${
+                          selected
+                            ? "border-white bg-white text-black"
+                            : "border-white/15 bg-white/[0.03] text-white/70 hover:border-white/40 hover:text-white"
+                        }`}
+                      >
+                        <span className="flex flex-col items-start leading-tight">
+                          <span>{s.title}</span>
+                          <span
+                            className={`text-[10px] ${
+                              selected ? "text-black/60" : "text-white/40"
+                            }`}
+                          >
+                            {s.artist}
+                          </span>
+                        </span>
+
+                        {selected && <PlayingDot />}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {song && (
+                  <p className="mt-2 text-xs text-white/40">
+                    Tap the song again to stop the preview.
+                  </p>
+                )}
+              </div>
+
+              {/* Description */}
+              <div>
+                <label
+                  htmlFor="post-description"
+                  className="mb-1.5 block text-xs font-medium text-white/60"
+                >
+                  Description
+                </label>
+                <textarea
+                  id="post-description"
+                  value={description}
+                  onChange={(event) =>
+                    setDescription(
+                      event.target.value.slice(0, MAX_DESCRIPTION),
+                    )
+                  }
+                  disabled={isPosting}
+                  rows={3}
+                  maxLength={MAX_DESCRIPTION}
+                  placeholder="Describe your work, the cut, products used, or anything else…"
+                  className="w-full resize-none rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm text-white placeholder:text-white/30 outline-none transition focus:border-white/40 focus:bg-white/[0.06] disabled:opacity-40"
+                />
+                <p className="mt-1 text-right text-[11px] text-white/40">
+                  {description.length}/{MAX_DESCRIPTION}
+                </p>
+              </div>
+
+              {/* Error */}
+              {error && (
+                <p role="alert" className="text-sm text-red-400">
+                  {error}
+                </p>
+              )}
             </div>
-          </div>
-
-          {/* Description */}
-          <div>
-            <label
-              htmlFor="post-description"
-              className="mb-1.5 block text-xs font-medium text-white/60"
-            >
-              Description
-            </label>
-            <textarea
-              id="post-description"
-              value={description}
-              onChange={(event) =>
-                setDescription(event.target.value.slice(0, MAX_DESCRIPTION))
-              }
-              disabled={isPosting}
-              rows={3}
-              maxLength={MAX_DESCRIPTION}
-              placeholder="Describe your work, the cut, products used, or anything else…"
-              className="w-full resize-none rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm text-white placeholder:text-white/30 outline-none transition focus:border-white/40 focus:bg-white/[0.06] disabled:opacity-40"
-            />
-            <p className="mt-1 text-right text-[11px] text-white/40">
-              {description.length}/{MAX_DESCRIPTION}
-            </p>
-          </div>
-
-          {/* Error */}
-          {error && (
-            <p role="alert" className="text-sm text-red-400">
-              {error}
-            </p>
-          )}
-        </div>
+          </>
+        )}
       </div>
 
       {/* Pinned footer */}
       <div className="shrink-0 border-t border-white/10 bg-zinc-950 px-5 pt-3 pb-[max(1rem,env(safe-area-inset-bottom))]">
         <button
           type="button"
-          disabled={!items.length || isPosting}
+          disabled={isPosting || items.length === 0}
           onClick={handlePost}
           className="flex w-full items-center justify-center gap-2 rounded-xl bg-white px-4 py-3 text-sm font-semibold text-black transition hover:bg-white/90 disabled:cursor-not-allowed disabled:opacity-30"
         >
           <Send size={18} />
-          {isPosting ? "Posting..." : "Post"}
+          {isPosting ? "Posting..." : isEditMode ? "Update" : "Post"}
         </button>
       </div>
     </div>

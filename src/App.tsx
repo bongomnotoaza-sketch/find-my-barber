@@ -5,9 +5,13 @@ import { AnimatePresence, motion } from "motion/react";
 import { Search, ImagePlus } from "lucide-react";
 import { getCurrentUser, onAuthStateChange, signOut } from "./lib/auth";
 import { supabase } from "./lib/superbase";
-import { updateProfile } from "./lib/profiles";
+import { putProfile } from "./lib/profiles";
 import { saveBarberProfile } from "./lib/barber_profiles";
-import { createPostWithUploads, CreatePostError } from "./lib/posts";
+import {
+  createPostWithUploads,
+  CreatePostError,
+  deletePostWithMedia,
+} from "./lib/posts";
 // ── Feed loader + types live in get_posts.ts now
 import { getFeedPosts, type FeedPost } from "./lib/get_posts";
 import { createBooking } from "./lib/create_booking";
@@ -27,8 +31,9 @@ import BarberProfileSetup from "./components/sidebar/barber_set_profile";
 import RefundsPolicy from "./components/mainarea/refundspolicy";
 import PrivacyPolicy from "./components/mainarea/privacypolicys";
 import TermsPolicy from "./components/mainarea/termspolicys";
-import type { Category } from "./components/mainarea/createpost";
+import type { Category, OrderedMedia } from "./components/mainarea/createpost";
 import PostCard from "./components/mainarea/PostCard";
+import { getSong } from "./lib/songs";
 
 const MUSIC_SRC = "/u_iu7xltufu1-sikhala-sonke-prodbywizlee-166112.mp3"; // from /public
 const PAGE_SIZE = 8;
@@ -82,6 +87,11 @@ export default function App() {
   const [showSearch, setShowSearch] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [comments, setComments] = useState<Comment[]>([]);
+
+  // Explicit "create post" mode. Only the white create-post FAB sets this.
+  // Every normal profile navigation clears it so barbers can view / book
+  // like any other user.
+  const [creatingPost, setCreatingPost] = useState(false);
 
   /* ---------- Feed state ---------- */
 
@@ -145,6 +155,14 @@ export default function App() {
     !showProfileSetup &&
     !showBarberSetup &&
     view === "home";
+
+  /* ---------- Derived: which track should be playing? ---------- */
+
+  // The song of the currently snapped-in post, if it has a resolvable id.
+  // Falls back to MUSIC_SRC when the post has no song or an unknown id.
+  const activePost = posts[activeIndex] ?? null;
+  const activeSong = activePost ? getSong(activePost.song) : null;
+  const songSrc = activeSong?.src ?? MUSIC_SRC;
 
   /* ---------- Effects ---------- */
 
@@ -315,10 +333,14 @@ export default function App() {
   }, [user, activeBarberId]);
 
   // Background music: plays only while the main (home) view is showing.
+  // Track source is the active post's song (from lib/songs.ts), or the
+  // MUSIC_SRC fallback when the post has no song / an unknown id.
+  // Changing posts with different songs re-runs this effect — hard cut
+  // (old audio stops, new one starts).
   useEffect(() => {
     if (!isOnMainView) return;
 
-    const audio = new Audio(MUSIC_SRC);
+    const audio = new Audio(songSrc);
     audio.loop = true;
     audio.volume = 0.4;
 
@@ -371,7 +393,7 @@ export default function App() {
       audio.removeAttribute("src");
       audio.load();
     };
-  }, [isOnMainView]);
+  }, [isOnMainView, songSrc]);
 
   /* ---------- Handlers ---------- */
 
@@ -421,21 +443,32 @@ export default function App() {
     });
   };
 
+  // Centralised "open a barber's profile" navigation.
+  // Always clears create-post mode so barbers viewing any profile
+  // (their own or someone else's) get the normal profile screen.
+  const openBarberProfile = (opts: {
+    barberId: string;
+    name?: string | null;
+    avatar?: string | null;
+  }) => {
+    captureActivePostIndex();
+    setCreatingPost(false);
+    setViewingBarberId(opts.barberId);
+    setViewingBarberName(opts.name ?? null);
+    setViewingBarberAvatar(opts.avatar ?? null);
+    setView("barber");
+  };
+
   // BookPopUp's "Book" → navigate to the barber's profile.
   const handleBook = () => {
-    captureActivePostIndex();
     setShowBookPopup(false);
     setSelectedDate(undefined);
 
     if (posterBarberId) {
-      setViewingBarberId(posterBarberId);
+      openBarberProfile({ barberId: posterBarberId });
+    } else if (activeBarberId) {
+      openBarberProfile({ barberId: activeBarberId });
     }
-
-    // No post context here — clear so header falls back to defaults.
-    setViewingBarberName(null);
-    setViewingBarberAvatar(null);
-
-    setView("barber");
   };
 
   // BarberStats's "Book" → go to the summary with both service + date.
@@ -496,20 +529,55 @@ export default function App() {
     ]);
   };
 
+  // Create / replace the signed-in barber's post.
+  //
+  // Edit flow (existingPostId set):
+  //   1. Delete the old post row (post_media cascades) + best-effort storage.
+  //   2. Create a brand-new post from the new files only.
+  // If step 1 fails, the old post is untouched. If step 2 fails after step 1,
+  // the barber's post is gone — surfaced via the thrown error.
+  //
+  // `songId` is the id from lib/songs.ts SONGS (or null for no song).
+  // Persisted on the new post row via createPostWithUploads → RPC p_song.
   const handleCreatePost = async (
-    images: File[],
+    orderedMedia: OrderedMedia[],
     description: string,
     category: Category | null,
+    existingPostId: string | null,
+    songId: string | null,
   ) => {
     if (!user) throw new Error("Not signed in.");
-    if (images.length === 0) throw new Error("Add at least one image.");
+
+    // Only new files survive a recreate. Saved entries are present in the
+    // payload for a future true-update flow, but the current strategy is
+    // delete-then-create, so saved media rows are gone either way.
+    const newImages = orderedMedia
+      .filter(
+        (m): m is Extract<OrderedMedia, { kind: "new" }> => m.kind === "new",
+      )
+      .map((m) => m.file);
+
+    if (newImages.length === 0) {
+      throw new Error(
+        existingPostId
+          ? "Add at least one new image to replace your post."
+          : "Add at least one image.",
+      );
+    }
 
     try {
+      // 1. Delete the existing post first, if any.
+      if (existingPostId) {
+        await deletePostWithMedia(supabase, existingPostId);
+      }
+
+      // 2. Create the new post from the new files only.
       const result = await createPostWithUploads(supabase, {
         barber_id: user.id,
         category: category ?? "Haircut",
         description: description || null,
-        media: images.map((file, index) => ({
+        song: songId,
+        media: newImages.map((file, index) => ({
           file,
           filename: file.name || `image-${index}.jpg`,
           audio: null,
@@ -523,6 +591,7 @@ export default function App() {
       );
 
       // Return to the home feed after a successful post.
+      setCreatingPost(false);
       setView("home");
 
       try {
@@ -590,28 +659,26 @@ export default function App() {
   // Avatar tap on the feed — opens the barber's profile with the
   // poster's display name and avatar so the header matches the feed.
   const handleOpenBarberProfile = (post: FeedPost) => {
-    captureActivePostIndex();
-    setViewingBarberId(post.barber_id);
-    setViewingBarberName(post.barber_display_name ?? null);
-    setViewingBarberAvatar(post.barber_avatar_url ?? null);
-    setView("barber");
+    openBarberProfile({
+      barberId: post.barber_id,
+      name: post.barber_display_name,
+      avatar: post.barber_avatar_url,
+    });
   };
 
   // Search result tap → open that barber's profile.
-  // Mirrors handleOpenBarberProfile, but the data comes from the RPC
-  // instead of a feed post. Also closes the search overlay.
   const handleOpenBarberFromSearch = (barber: {
     id: string;
     name: string;
     avatarUrl: string;
   }) => {
-    captureActivePostIndex();
     setShowSearch(false);
     setSearchTerm("");
-    setViewingBarberId(barber.id);
-    setViewingBarberName(barber.name);
-    setViewingBarberAvatar(barber.avatarUrl);
-    setView("barber");
+    openBarberProfile({
+      barberId: barber.id,
+      name: barber.name,
+      avatar: barber.avatarUrl,
+    });
   };
 
   // Profile icon tap in the bottom footer — opens the sidebar.
@@ -619,15 +686,16 @@ export default function App() {
     setShowSidebar(true);
   };
 
-  // White create-post icon on the home feed — mirrors the avatar path
-  // exactly: opens the barber screen in isBarber mode, which renders
-  // CreatePost with its back button.
+  // White create-post icon on the home feed — the ONLY entry point into
+  // CreatePost. Sets explicit create-post mode and points at the
+  // signed-in barber's own profile.
   const handleOpenCreatePost = () => {
     if (!user) return;
     captureActivePostIndex();
     setViewingBarberId(user.id);
     setViewingBarberName(null);
     setViewingBarberAvatar(null);
+    setCreatingPost(true);
     setView("barber");
   };
 
@@ -641,6 +709,15 @@ export default function App() {
   const handleCloseSearch = () => {
     setShowSearch(false);
     setSearchTerm("");
+  };
+
+  // Leaving the barber screen — reset all barber-context state.
+  const handleBackFromBarber = () => {
+    setView("home");
+    setViewingBarberId(null);
+    setViewingBarberName(null);
+    setViewingBarberAvatar(null);
+    setCreatingPost(false);
   };
 
   /* ---------- Derived ---------- */
@@ -689,7 +766,7 @@ export default function App() {
     return (
       <ProfileSetup
         onContinue={async (details) => {
-          const result = await updateProfile({
+          const result = await putProfile({
             displayName: details.displayName,
             bio: details.bio,
             avatarFile:
@@ -716,7 +793,7 @@ export default function App() {
     return (
       <BarberProfileSetup
         onContinue={async (details) => {
-          const profileResult = await updateProfile({
+          const profileResult = await putProfile({
             displayName: details.displayName,
             bio: details.bio,
             avatarFile:
@@ -795,15 +872,11 @@ export default function App() {
       {view === "barber" && (
         <BarberScreen
           isBarber={!!isBarber}
-          barberId={isBarber ? user.id : activeBarberId}
+          isCreatingPost={creatingPost}
+          barberId={activeBarberId}
           barberName={viewingBarberName ?? undefined}
           barberAvatar={viewingBarberAvatar ?? undefined}
-          onBack={() => {
-            setView("home");
-            setViewingBarberId(null);
-            setViewingBarberName(null);
-            setViewingBarberAvatar(null);
-          }}
+          onBack={handleBackFromBarber}
           onBook={handleBarberBook}
           onCreatePost={handleCreatePost}
         />

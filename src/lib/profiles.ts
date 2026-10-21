@@ -15,9 +15,6 @@ function avatarPathFor(userId: string) {
   return `avatars/image_${userId}`;
 }
 
-/**
- * Returns the signed-in user or null.
- */
 async function getSignedInUser() {
   const {
     data: { user },
@@ -28,159 +25,110 @@ async function getSignedInUser() {
   return user;
 }
 
-/* ---------- Display name ---------- */
+/* ---------- PUT (update only) ---------- */
 
 /**
- * Update the signed-in user's display name.
+ * PUT-style update of the signed-in user's profile.
+ *
+ * The profile row is assumed to always exist, so every field is written
+ * with a single `.update()` (no insert / no existence check).
+ *
+ * - `email` and `phone_number` are guaranteed to exist and are written
+ *   as-is (no checks).
+ * - `display_name`, `bio`, and the avatar keep their existing validation.
+ *
+ * Only supplied fields are written.
  */
-export async function updateDisplayName(
-  displayName: string
-): Promise<AuthResult> {
-  const user = await getSignedInUser();
-
-  if (!user) {
-    return { success: false, data: null, error: "Not signed in" };
-  }
-
-  const trimmed = displayName.trim();
-
-  if (trimmed.length === 0) {
-    return { success: false, data: null, error: "Display name cannot be empty." };
-  }
-
-  if (trimmed.length > MAX_DISPLAY_NAME_LENGTH) {
-    return {
-      success: false,
-      data: null,
-      error: `Display name must be under ${MAX_DISPLAY_NAME_LENGTH} characters.`,
-    };
-  }
-
-  const { error } = await supabase
-    .from("profiles")
-    .update({ display_name: trimmed })
-    .eq("id", user.id);
-
-  if (error) {
-    return { success: false, data: null, error: error.message };
-  }
-
-  return { success: true, data: null, error: null };
-}
-
-/* ---------- Bio ---------- */
-
-/**
- * Update the signed-in user's bio.
- */
-export async function updateBio(bio: string): Promise<AuthResult> {
-  const user = await getSignedInUser();
-
-  if (!user) {
-    return { success: false, data: null, error: "Not signed in" };
-  }
-
-  const trimmed = bio.trim();
-
-  if (trimmed.length > MAX_BIO_LENGTH) {
-    return {
-      success: false,
-      data: null,
-      error: `Bio must be under ${MAX_BIO_LENGTH} characters.`,
-    };
-  }
-
-  const { error } = await supabase
-    .from("profiles")
-    .update({ bio: trimmed })
-    .eq("id", user.id);
-
-  if (error) {
-    return { success: false, data: null, error: error.message };
-  }
-
-  return { success: true, data: null, error: null };
-}
-
-/* ---------- Avatar ---------- */
-
-/**
- * Upload (or replace) the signed-in user's avatar.
- * Stored at  avatar/image_{user_id}  in the `avatars` bucket,
- * and that path is saved to profiles.avatar_path.
- * Returns the public URL (with a cache-buster).
- */
-export async function uploadAvatar(
-  file: File
-): Promise<AuthResult<{ path: string; url: string }>> {
-  const user = await getSignedInUser();
-
-  if (!user) {
-    return { success: false, data: null, error: "Not signed in" };
-  }
-
-  if (!file.type.startsWith("image/")) {
-    return { success: false, data: null, error: "File must be an image." };
-  }
-
-  if (file.size > MAX_AVATAR_BYTES) {
-    return { success: false, data: null, error: "Image must be under 5 MB." };
-  }
-
-  const path = avatarPathFor(user.id);
-
-  const { error: uploadError } = await supabase.storage
-    .from(AVATAR_BUCKET)
-    .upload(path, file, {
-      upsert: true, // overwrite the previous avatar
-      contentType: file.type,
-    });
-
-  if (uploadError) {
-    return { success: false, data: null, error: uploadError.message };
-  }
-
-  const { error: dbError } = await supabase
-    .from("profiles")
-    .update({ avatar_path: path })
-    .eq("id", user.id);
-
-  if (dbError) {
-    return { success: false, data: null, error: dbError.message };
-  }
-
-  const { data } = supabase.storage.from(AVATAR_BUCKET).getPublicUrl(path);
-
-  return {
-    success: true,
-    data: { path, url: `${data.publicUrl}?t=${Date.now()}` },
-    error: null,
-  };
-}
-
-/* ---------- Combined ---------- */
-
-/**
- * Convenience: update display name, bio, and/or avatar in one call.
- */
-export async function updateProfile(input: {
+export async function putProfile(input: {
   displayName?: string;
   bio?: string;
+  email?: string;
+  phoneNumber?: string;
   avatarFile?: File | null;
 }): Promise<AuthResult> {
+  const user = await getSignedInUser();
+  if (!user) {
+    return { success: false, data: null, error: "Not signed in" };
+  }
+
+  /* ---------- display name (existing checks) ---------- */
   if (input.displayName !== undefined) {
-    const res = await updateDisplayName(input.displayName);
-    if (!res.success) return res;
+    const trimmed = input.displayName.trim();
+    if (trimmed.length === 0) {
+      return {
+        success: false,
+        data: null,
+        error: "Display name cannot be empty.",
+      };
+    }
+    if (trimmed.length > MAX_DISPLAY_NAME_LENGTH) {
+      return {
+        success: false,
+        data: null,
+        error: `Display name must be under ${MAX_DISPLAY_NAME_LENGTH} characters.`,
+      };
+    }
   }
 
+  /* ---------- bio (existing checks) ---------- */
   if (input.bio !== undefined) {
-    const res = await updateBio(input.bio);
-    if (!res.success) return res;
+    if (input.bio.trim().length > MAX_BIO_LENGTH) {
+      return {
+        success: false,
+        data: null,
+        error: `Bio must be under ${MAX_BIO_LENGTH} characters.`,
+      };
+    }
   }
 
+  /* ---------- avatar (existing checks) ---------- */
   if (input.avatarFile) {
-    const res = await uploadAvatar(input.avatarFile);
-    if (!res.success) return { success: false, data: null, error: res.error };
+    if (!input.avatarFile.type.startsWith("image/")) {
+      return { success: false, data: null, error: "File must be an image." };
+    }
+    if (input.avatarFile.size > MAX_AVATAR_BYTES) {
+      return { success: false, data: null, error: "Image must be under 5 MB." };
+    }
+  }
+
+  // email + phoneNumber: no checks — they always exist, write as-is.
+
+  /* ---------- upload avatar first (if any) ---------- */
+  const path = avatarPathFor(user.id);
+  if (input.avatarFile) {
+    const { error: uploadError } = await supabase.storage
+      .from(AVATAR_BUCKET)
+      .upload(path, input.avatarFile, {
+        upsert: true,
+        contentType: input.avatarFile.type,
+      });
+    if (uploadError) {
+      return { success: false, data: null, error: uploadError.message };
+    }
+  }
+
+  /* ---------- build payload (only supplied fields) ---------- */
+  const payload: Record<string, unknown> = {};
+  if (input.displayName !== undefined)
+    payload.display_name = input.displayName.trim();
+  if (input.bio !== undefined) payload.bio = input.bio.trim();
+  if (input.email !== undefined) payload.email = input.email;
+  if (input.phoneNumber !== undefined)
+    payload.phone_number = input.phoneNumber;
+  if (input.avatarFile) payload.avatar_path = path;
+
+  if (Object.keys(payload).length === 0) {
+    return { success: true, data: null, error: null };
+  }
+
+  /* ---------- PUT: update the existing row ---------- */
+  const { error } = await supabase
+    .from("profiles")
+    .update(payload)
+    .eq("id", user.id);
+
+  if (error) {
+    return { success: false, data: null, error: error.message };
   }
 
   return { success: true, data: null, error: null };

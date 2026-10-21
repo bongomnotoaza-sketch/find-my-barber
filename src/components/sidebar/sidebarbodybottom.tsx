@@ -71,10 +71,19 @@ const icons: Record<ToggleOption, string> = {
 /*  Sub-view registry                                                  */
 /* ------------------------------------------------------------------ */
 
+/**
+ * Sub-views may receive `isBarber` (AccountSettings uses it to show the
+ * barber-only section). Components that don't need it simply ignore it.
+ */
+type SubViewProps = { isBarber?: boolean };
+
 const userSubViews = {
   bookings: { title: "Bookings", Component: BookingsList },
   tickets: { title: "Tickets", Component: Tickets },
-  "barbers following": { title: "Barbers Following", Component: BarbersFollowing },
+  "barbers following": {
+    title: "Barbers Following",
+    Component: BarbersFollowing,
+  },
   "account settings": { title: "Account Settings", Component: AccountSettings },
 } as const;
 
@@ -117,7 +126,9 @@ export default function SidebarBodyBottom({
   const [view, setView] = useState<SidebarView>("menu");
 
   const isBarber = role === "barber";
-  const options: readonly ToggleOption[] = isBarber ? BARBER_OPTIONS : USER_OPTIONS;
+  const options: readonly ToggleOption[] = isBarber
+    ? BARBER_OPTIONS
+    : USER_OPTIONS;
 
   const handleSignOut = async () => {
     if (pending) return;
@@ -152,12 +163,29 @@ export default function SidebarBodyBottom({
     }
   };
 
+  /* ---------- Render the active sub-view ---------- */
+
+  const renderSubView = () => {
+    if (view === "menu") return null;
+
+    if (view.kind === "user") {
+      const { Component } = userSubViews[view.key] as {
+        Component: React.ComponentType<SubViewProps>;
+      };
+      return <Component isBarber={false} />;
+    }
+
+    const { Component } = barberSubViews[view.key] as {
+      Component: React.ComponentType<SubViewProps>;
+    };
+    return <Component isBarber={true} />;
+  };
+
   return (
-    // CHANGED: added min-h-0 so this flex container can actually shrink
     <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
       {view === "menu" ? (
         <>
-          {/* Scrollable toggle options — CHANGED: added min-h-0 */}
+          {/* Scrollable toggle options */}
           <div className="flex flex-col gap-1 p-2 overflow-y-auto flex-1 min-h-0">
             {options.map((option) => (
               <button
@@ -178,7 +206,7 @@ export default function SidebarBodyBottom({
             ))}
           </div>
 
-          {/* Sign out button pinned at bottom — CHANGED: added shrink-0 */}
+          {/* Sign out button pinned at bottom */}
           <div className="p-2 border-t border-white/20 shrink-0">
             <button
               type="button"
@@ -211,15 +239,7 @@ export default function SidebarBodyBottom({
           }
           onBack={() => setView("menu")}
         >
-          {view.kind === "user"
-            ? (() => {
-                const { Component } = userSubViews[view.key];
-                return <Component />;
-              })()
-            : (() => {
-                const { Component } = barberSubViews[view.key];
-                return <Component />;
-              })()}
+          {renderSubView()}
         </SidebarSubView>
       )}
     </div>

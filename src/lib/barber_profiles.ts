@@ -20,6 +20,7 @@ export type BarberProfile = {
   updated_at: string;
   account_number: string;
   account_holder: string;
+  buisness_loction_image_path: string | null;
 };
 
 /**
@@ -39,6 +40,7 @@ export type CreateBarberProfileInput = {
   instagram?: string | null;
   facebook?: string | null;
   twitter?: string | null;
+  buisness_loction_image_path?: string | null;
 };
 
 /**
@@ -58,6 +60,9 @@ const MAX_SHOP_NAME_LENGTH = 80;
 const MAX_ADDRESS_LENGTH = 200;
 const MAX_URL_LENGTH = 200;
 const MAX_ACCOUNT_NUMBER_LENGTH = 20;
+
+const IMAGES_BUCKET = "images";
+const MAX_LOCATION_IMAGE_BYTES = 5 * 1024 * 1024; // 5 MB
 
 /* ---------- Helpers ---------- */
 
@@ -121,6 +126,11 @@ function validateInput(input: Partial<CreateBarberProfileInput>): string | null 
   return null;
 }
 
+/** images/{user_id}/business-location inside the `images` bucket */
+function locationImagePathFor(userId: string) {
+  return `images/${userId}/business-location`;
+}
+
 /* ---------- Create ---------- */
 
 /**
@@ -152,6 +162,9 @@ export async function createBarberProfile(
     instagram: trimOrNull(input.instagram),
     facebook: trimOrNull(input.facebook),
     twitter: trimOrNull(input.twitter),
+    buisness_loction_image_path: trimOrNull(
+      input.buisness_loction_image_path
+    ),
   };
 
   const { data, error } = await supabase
@@ -199,6 +212,10 @@ export async function updateBarberProfile(
   if (input.instagram !== undefined) patch.instagram = trimOrNull(input.instagram);
   if (input.facebook !== undefined) patch.facebook = trimOrNull(input.facebook);
   if (input.twitter !== undefined) patch.twitter = trimOrNull(input.twitter);
+  if (input.buisness_loction_image_path !== undefined)
+    patch.buisness_loction_image_path = trimOrNull(
+      input.buisness_loction_image_path
+    );
   if (input.is_active !== undefined) patch.is_active = input.is_active;
 
   if (Object.keys(patch).length === 0) {
@@ -270,25 +287,122 @@ export async function getBarberProfileById(
   return { success: true, data: data as BarberProfile, error: null };
 }
 
-/* ---------- Combined upsert ---------- */
+/* ---------- Combined upsert (PUT if exists, POST if not) ---------- */
 
 /**
- * Create the barber profile if it doesn't exist yet, otherwise update it.
- * Handy for a single "save barber details" form.
+ * Save the signed-in user's barber profile.
+ *
+ * - Row exists  → PUT  (`updateBarberProfile`) — only supplied fields are written.
+ * - Row missing → POST (`createBarberProfile`) — requires the mandatory fields
+ *                 (`shop_name`, `address`, `account_number`, `account_holder`).
+ *                 If any of those are missing, returns a clear error instead
+ *                 of inserting `undefined`.
+ *
+ * Accepts a partial input so a single-field editor (e.g. Account Settings
+ * saving just `instagram`) works in both modes.
  */
 export async function saveBarberProfile(
-  input: CreateBarberProfileInput
+  input: Partial<CreateBarberProfileInput>
 ): Promise<BarberProfileResult<BarberProfile>> {
   const existing = await getMyBarberProfile();
 
+  /* ----- PUT: row exists → update only supplied fields ----- */
   if (existing.success) {
     return updateBarberProfile(input);
   }
 
-  // If it errored for any reason other than "not found", surface that error
+  /* ----- Surface real read errors (not "not found") ----- */
   if (existing.error !== "Barber profile not found.") {
     return { success: false, data: null, error: existing.error };
   }
 
-  return createBarberProfile(input);
+  /* ----- POST: row missing → create (requires mandatory fields) ----- */
+  const missing: string[] = [];
+  if (!input.shop_name || input.shop_name.trim().length === 0)
+    missing.push("shop_name");
+  if (!input.address || input.address.trim().length === 0)
+    missing.push("address");
+  if (!input.account_number || input.account_number.trim().length === 0)
+    missing.push("account_number");
+  if (!input.account_holder || input.account_holder.trim().length === 0)
+    missing.push("account_holder");
+
+  if (missing.length > 0) {
+    return {
+      success: false,
+      data: null,
+      error: `Cannot create barber profile — missing required fields: ${missing.join(
+        ", "
+      )}.`,
+    };
+  }
+
+  return createBarberProfile(input as CreateBarberProfileInput);
+}
+
+/* ---------- Business location image ---------- */
+
+/**
+ * Upload (or replace) the signed-in barber's business location image and
+ * write its storage path to `barber_profiles.buisness_loction_image_path`.
+ *
+ * Mirrors the avatar flow: validate → upload with upsert → PATCH the row.
+ * Returns the updated barber profile on success.
+ */
+export async function putBarberLocationImage(input: {
+  file: File | Blob;
+}): Promise<BarberProfileResult<BarberProfile>> {
+  const user = await getSignedInUser();
+  if (!user) {
+    return { success: false, data: null, error: "Not signed in" };
+  }
+
+  const { file } = input;
+
+  if (!file.type.startsWith("image/")) {
+    return { success: false, data: null, error: "File must be an image." };
+  }
+  if (file.size > MAX_LOCATION_IMAGE_BYTES) {
+    return { success: false, data: null, error: "Image must be under 5 MB." };
+  }
+
+  // Upload / replace at a stable path so old files don't pile up.
+  const path = locationImagePathFor(user.id);
+  const { error: uploadError } = await supabase.storage
+    .from(IMAGES_BUCKET)
+    .upload(path, file, {
+      upsert: true,
+      contentType: file.type,
+    });
+
+  if (uploadError) {
+    return { success: false, data: null, error: uploadError.message };
+  }
+
+  // Write the storage path to the row (PUT semantics — update only).
+  const { data, error } = await supabase
+    .from("barber_profiles")
+    .update({ buisness_loction_image_path: path })
+    .eq("id", user.id)
+    .select()
+    .single();
+
+  if (error) {
+    return { success: false, data: null, error: error.message };
+  }
+
+  return { success: true, data: data as BarberProfile, error: null };
+}
+
+/**
+ * Resolve `buisness_loction_image_path` to a public URL for display.
+ * Returns null when there's no path.
+ */
+export function getBarberLocationImageUrl(
+  path: string | null,
+  bucket = IMAGES_BUCKET
+): string | null {
+  if (!path) return null;
+  const { data } = supabase.storage.from(bucket).getPublicUrl(path);
+  return data.publicUrl;
 }

@@ -18,6 +18,8 @@ export interface Post {
   readonly barber_id: string;
   readonly category: string;
   readonly description: string | null;
+  /** Song id from lib/songs.ts SONGS, or null. */
+  readonly song: string | null;
   readonly likes: number;
   readonly comments: number;
   readonly favourites: number;
@@ -278,5 +280,46 @@ function decorateMedia(
     audio_url: media.audio_path
       ? getPublicUrl(supabase, media.audio_path)
       : null,
+  };
+}
+
+/* ============================================================
+ * Convenience: the single post owned by a barber
+ * ============================================================ */
+
+/**
+ * Returns the barber's post (with resolved media URLs), or `null` if they
+ * haven't created one yet. Deterministic: if duplicates ever exist, the
+ * oldest wins — "their post", not "their latest post".
+ *
+ * This is the read side of the one-post-per-barber loop. The write side
+ * (create-or-update) lands in a later pass.
+ */
+export async function getPostByBarber(
+  supabase: SupabaseClient,
+  barberId: string,
+): Promise<PostWithMedia | null> {
+  const { data: post, error: postError } = await supabase
+    .from('posts')
+    .select('*')
+    .eq('barber_id', barberId)
+    .order('created_at', { ascending: true })
+    .limit(1)
+    .maybeSingle();
+
+  if (postError) throw new GetPostError(postError.message, postError);
+  if (!post) return null;
+
+  const { data: media, error: mediaError } = await supabase
+    .from('post_media')
+    .select('*')
+    .eq('post_id', post.id)
+    .order('media_index', { ascending: true });
+
+  if (mediaError) throw new GetPostError(mediaError.message, mediaError);
+
+  return {
+    ...(post as Post),
+    media: (media ?? []).map((m) => decorateMedia(supabase, m as PostMedia)),
   };
 }
