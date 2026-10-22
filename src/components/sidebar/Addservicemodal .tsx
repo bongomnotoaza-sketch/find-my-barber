@@ -2,6 +2,7 @@ import { AnimatePresence, motion } from "motion/react";
 import { useEffect, useMemo, useState } from "react";
 import {
   DEFAULT_BARBER_SERVICES,
+  applyImageFallback,
   type BarberServiceCategory,
   type DefaultBarberService,
 } from "../../lib/defaulcatalogue";
@@ -18,13 +19,37 @@ type AddServiceModalProps = {
 
 type CategoryFilter = "all" | BarberServiceCategory;
 
+/**
+ * Human-readable labels for every catalogue category.
+ * Exhaustive Record → TypeScript errors if a new category is added to
+ * `defaulcatalogue.ts` without a label here.
+ */
+const CATEGORY_LABELS: Record<BarberServiceCategory, string> = {
+  hair: "Hair",
+  beard: "Beard",
+  shave: "Shave",
+  combined: "Combined",
+  kids: "Kids",
+  "womens-cut": "Women's Cut",
+  "womens-styling": "Women's Styling",
+  colour: "Colour",
+  braids: "Braids",
+  "weave-wig": "Weave & Wig",
+  chemical: "Chemical",
+  treatments: "Treatments",
+};
+
+/**
+ * Category chips are derived from the catalogue itself so this list can
+ * never drift out of sync when services are added.
+ */
 const CATEGORIES: { value: CategoryFilter; label: string }[] = [
   { value: "all", label: "All" },
-  { value: "hair", label: "Hair" },
-  { value: "beard", label: "Beard" },
-  { value: "shave", label: "Shave" },
-  { value: "combined", label: "Combined" },
-  { value: "kids", label: "Kids" },
+  ...(
+    Array.from(
+      new Set(DEFAULT_BARBER_SERVICES.map((s) => s.category))
+    ) as BarberServiceCategory[]
+  ).map((cat) => ({ value: cat, label: CATEGORY_LABELS[cat] ?? cat })),
 ];
 
 const withImageParams = (url: string) =>
@@ -214,14 +239,17 @@ export default function AddServiceModal({
                           src={withImageParams(s.imageUrl)}
                           alt={s.name}
                           loading="lazy"
+                          onError={(e) =>
+                            applyImageFallback(e.currentTarget, s)
+                          }
                           className="w-full h-24 object-cover"
                         />
                         <div className="px-3 py-2">
                           <div className="text-sm font-semibold text-white leading-tight">
                             {s.name}
                           </div>
-                          <div className="text-[11px] text-white/40 mt-0.5 capitalize">
-                            {s.category}
+                          <div className="text-[11px] text-white/40 mt-0.5">
+                            {CATEGORY_LABELS[s.category] ?? s.category}
                           </div>
                         </div>
                         {isSelected && (

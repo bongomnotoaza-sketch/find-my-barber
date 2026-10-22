@@ -34,6 +34,8 @@ import TermsPolicy from "./components/mainarea/termspolicys";
 import type { Category, OrderedMedia } from "./components/mainarea/createpost";
 import PostCard from "./components/mainarea/PostCard";
 import { getSong } from "./lib/songs";
+import LandingPage from "./components/landingpage";
+import { detectStandaloneSync } from "./lib/usePwaInstall";
 
 const MUSIC_SRC = "/u_iu7xltufu1-sikhala-sonke-prodbywizlee-166112.mp3"; // from /public
 const PAGE_SIZE = 8;
@@ -66,6 +68,16 @@ type Feed = "barbers" | "general";
 type Role = "user" | "barber";
 
 export default function App() {
+  /* ---------- Landing gate ---------- */
+
+  // Resolves synchronously so a returning PWA user never sees a flash of
+  // the landing page. `detectStandaloneSync` also honours a localStorage
+  // flag written after a previous install, covering the case where the
+  // user later opens the site in a regular browser tab.
+  const [hasSeenLanding, setHasSeenLanding] = useState<boolean>(() =>
+    detectStandaloneSync(),
+  );
+
   /* ---------- Session & profile gating ---------- */
 
   const [user, setUser] = useState<User | null>(null);
@@ -233,7 +245,8 @@ export default function App() {
     })();
   }, [user, pendingRole]);
 
-  // Load the feed whenever the user is signed in and profile gating is done.
+  // Load the feed whenever the user is signed in, profile gating is done,
+  // or the active tab (Your Barbers / General) changes.
   useEffect(() => {
     if (!user || checkingProfile) {
       setPosts([]);
@@ -244,8 +257,16 @@ export default function App() {
     let cancelled = false;
     setLoadingFeed(true);
     setFeedError(null);
+    setActiveIndex(0);
+    savedPostIndexRef.current = 0;
+    if (feedScrollRef.current) feedScrollRef.current.scrollTop = 0;
 
-    getFeedPosts(supabase, { limit: PAGE_SIZE })
+    getFeedPosts(supabase, {
+      limit: PAGE_SIZE,
+      // "Your Barbers" tab: restrict to followed barbers (loader drops the
+      // filter internally if the user follows nobody → shows everything).
+      followerId: activeFeed === "barbers" ? user.id : undefined,
+    })
       .then((rows) => {
         if (cancelled) return;
         setPosts([...rows]);
@@ -266,7 +287,7 @@ export default function App() {
     return () => {
       cancelled = true;
     };
-  }, [user, checkingProfile]);
+  }, [user, checkingProfile, activeFeed]);
 
   // Restore the feed's scroll position whenever we come back to "home".
   useEffect(() => {
@@ -408,7 +429,7 @@ export default function App() {
   };
 
   const loadMore = async () => {
-    if (loadingMoreRef.current || !hasMore) return;
+    if (loadingMoreRef.current || !hasMore || !user) return;
     loadingMoreRef.current = true;
     setLoadingMore(true);
 
@@ -416,6 +437,9 @@ export default function App() {
       const rows = await getFeedPosts(supabase, {
         limit: PAGE_SIZE,
         offset: posts.length,
+        // Mirror the active tab so pagination doesn't mix followed-only
+        // pages with global ones.
+        followerId: activeFeed === "barbers" ? user.id : undefined,
       });
 
       setPosts((prev) => {
@@ -595,7 +619,10 @@ export default function App() {
       setView("home");
 
       try {
-        const rows = await getFeedPosts(supabase, { limit: PAGE_SIZE });
+        const rows = await getFeedPosts(supabase, {
+          limit: PAGE_SIZE,
+          followerId: activeFeed === "barbers" ? user.id : undefined,
+        });
         setPosts([...rows]);
         setHasMore(rows.length === PAGE_SIZE);
         savedPostIndexRef.current = 0;
@@ -731,6 +758,13 @@ export default function App() {
     : "";
 
   /* ---------- Early returns ---------- */
+
+  // LANDING PAGE GATE — shown first, before login/signup, unless the app
+  // is already installed (or was installed previously and we're opening
+  // in a browser tab, caught by detectStandaloneSync reading the LS flag).
+  if (!hasSeenLanding) {
+    return <LandingPage onContinue={() => setHasSeenLanding(true)} />;
+  }
 
   if (checkingSession || (user && checkingProfile)) {
     return (

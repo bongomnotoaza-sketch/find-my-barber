@@ -88,7 +88,7 @@ export default function OrderSummary({
         onClick={() => onPay?.(bookingForName)}
         className="h-14 w-full flex items-center justify-center rounded-xl bg-orange-500 active:bg-orange-600"
       >
-        <span className="text-base font-bold text-white">Pay Now</span>
+        <span className="text-base font-bold text-white">Book Now</span>
       </button>
     </div>
   );

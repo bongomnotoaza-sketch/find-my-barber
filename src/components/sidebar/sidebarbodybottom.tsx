@@ -3,13 +3,11 @@ import BarbersFollowing from "./barbersfollowing";
 import BookingsList from "./bookings";
 import Tickets from "./tickets";
 import AccountSettings from "./accountsettings";
-import Earnings from "./income";
-import Bookings from "./barber_bookings";
 import Line from "./line";
+import Bookings from "./barber_bookings";
 import Schedule from "./schedule";
 import Services from "./services";
 import Customers from "./customers";
-import Expenses from "./espenses";
 
 /* ------------------------------------------------------------------ */
 /*  Option lists per role                                              */
@@ -31,9 +29,6 @@ const BARBER_OPTIONS = [
   "services",
   "customers",
   "schedule",
-  "earnings",
-  "expenses",
-  "reviews",
   "account settings",
   "platform policy",
   "privacy policy",
@@ -53,7 +48,6 @@ const icons: Record<ToggleOption, string> = {
   line: "fa-users",
   bookings: "fa-calendar-check",
   tickets: "fa-ticket",
-  reviews: "fa-star",
   "barbers following": "fa-user-group",
   "account settings": "fa-gear",
   help: "fa-circle-question",
@@ -63,8 +57,6 @@ const icons: Record<ToggleOption, string> = {
   services: "fa-scissors",
   customers: "fa-users",
   schedule: "fa-clock",
-  earnings: "fa-sack-dollar",
-  expenses: "fa-receipt",
 };
 
 /* ------------------------------------------------------------------ */
@@ -93,8 +85,6 @@ const barberSubViews = {
   services: { title: "Services", Component: Services },
   customers: { title: "Customers", Component: Customers },
   schedule: { title: "Schedule", Component: Schedule },
-  earnings: { title: "Earnings", Component: Earnings },
-  expenses: { title: "Expenses", Component: Expenses },
   "account settings": { title: "Account Settings", Component: AccountSettings },
 } as const;
 

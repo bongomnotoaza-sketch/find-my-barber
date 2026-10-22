@@ -18,16 +18,19 @@ const ACCEPT = "image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.hei
 const MAX_DESCRIPTION = 500;
 
 const CATEGORIES = [
-  "Haircut",
-  "Beard Trim",
-  "Hot Towel Shave",
-  "Fade",
-  "Line Up",
-  "Hair Coloring",
-  "Kids Cut",
-  "Styling",
-  "Before & After",
-  "Shop Update",
+  "hair",
+  "beard",
+  "shave",
+  "combined",
+  "kids",
+  // ── Female / salon categories ──
+  "womens-cut",
+  "womens-styling",
+  "colour",
+  "braids",
+  "weave-wig",
+  "chemical",
+  "treatments",
 ] as const;
 
 export type Category = (typeof CATEGORIES)[number];

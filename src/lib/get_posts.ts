@@ -178,7 +178,11 @@ export async function getPosts(
 
 export interface GetFeedPostsOptions
   extends Omit<GetPostsOptions, 'barberId'> {
-  /** Optional: restrict the feed to barbers this user follows. */
+  /**
+   * Optional: restrict the feed to barbers this user follows.
+   * If the user follows nobody, the restriction is dropped and the
+   * full (global) feed is returned instead.
+   */
   readonly followerId?: string;
 }
 
@@ -196,9 +200,36 @@ export async function getFeedPosts(
   supabase: SupabaseClient,
   options: GetFeedPostsOptions = {},
 ): Promise<readonly FeedPost[]> {
-  const { limit = 50, offset = 0, order = 'desc', category } = options;
+  const { limit = 50, offset = 0, order = 'desc', category, followerId } =
+    options;
 
-  const posts = await getPosts(supabase, {
+  // 1. Resolve the follow filter to a concrete set of barber ids.
+  //    Rule: "following nobody" → no filter → show everything.
+  let barberIds: readonly string[] | undefined;
+
+  if (followerId) {
+    const { data: followRows, error: followErr } = await supabase
+      .from('Following')
+      .select('barber_id')
+      .eq('user_id', followerId);
+
+    if (followErr) {
+      throw new GetPostError(followErr.message, followErr);
+    }
+
+    const ids = (followRows ?? [])
+      .map((r) => (r as { barber_id: string | null }).barber_id)
+      .filter((id): id is string => typeof id === 'string' && id.length > 0);
+
+    // Following nobody → fall through to the global feed.
+    if (ids.length > 0) {
+      barberIds = Array.from(new Set(ids));
+    }
+  }
+
+  // 2. Load the posts, filtered by barber set when applicable.
+  const posts = await getPostsForFeed(supabase, {
+    barberIds,
     limit,
     offset,
     order,
@@ -207,12 +238,13 @@ export async function getFeedPosts(
 
   if (posts.length === 0) return [];
 
-  const barberIds = Array.from(new Set(posts.map((p) => p.barber_id)));
+  // 3. Attach poster display name + avatar.
+  const posterIds = Array.from(new Set(posts.map((p) => p.barber_id)));
 
   const { data: profiles, error: profilesError } = await supabase
     .from('profiles')
     .select('id, display_name, avatar_path')
-    .in('id', barberIds);
+    .in('id', posterIds);
 
   if (profilesError) {
     throw new GetPostError(profilesError.message, profilesError);
@@ -269,6 +301,60 @@ export function getPostsByCategory(
 /* ============================================================
  * Internal
  * ============================================================ */
+
+/**
+ * Same as getPosts, but supports an `in` filter over a set of barber ids.
+ * Used by the feed loader when the "Your Barbers" tab is active.
+ */
+async function getPostsForFeed(
+  supabase: SupabaseClient,
+  opts: {
+    barberIds?: readonly string[];
+    category?: string;
+    limit: number;
+    offset: number;
+    order: 'asc' | 'desc';
+  },
+): Promise<readonly PostWithMedia[]> {
+  const { barberIds, category, limit, offset, order } = opts;
+
+  let query = supabase
+    .from('posts')
+    .select('*')
+    .order('created_at', { ascending: order === 'asc' })
+    .range(offset, offset + limit - 1);
+
+  if (barberIds && barberIds.length > 0) {
+    query = query.in('barber_id', [...barberIds]);
+  }
+  if (category) query = query.eq('category', category);
+
+  const { data: posts, error: postsError } = await query;
+  if (postsError) throw new GetPostError(postsError.message, postsError);
+  if (!posts || posts.length === 0) return [];
+
+  const postIds = posts.map((p) => p.id);
+
+  const { data: media, error: mediaError } = await supabase
+    .from('post_media')
+    .select('*')
+    .in('post_id', postIds)
+    .order('media_index', { ascending: true });
+
+  if (mediaError) throw new GetPostError(mediaError.message, mediaError);
+
+  const mediaByPost = new Map<string, PostMediaWithUrls[]>();
+  for (const row of (media ?? []) as PostMedia[]) {
+    const list = mediaByPost.get(row.post_id) ?? [];
+    list.push(decorateMedia(supabase, row));
+    mediaByPost.set(row.post_id, list);
+  }
+
+  return posts.map((post) => ({
+    ...(post as Post),
+    media: mediaByPost.get(post.id) ?? [],
+  }));
+}
 
 function decorateMedia(
   supabase: SupabaseClient,

@@ -3,7 +3,12 @@ import { motion } from "motion/react";
 import { useEffect, useState } from "react";
 import AddServiceModal, { type NewServicePayload } from "./Addservicemodal ";
 import { createBarberService } from "../../lib/create_service";
-import { DEFAULT_BARBER_SERVICES } from "../../lib/defaulcatalogue";
+import {
+  DEFAULT_BARBER_SERVICES,
+  applyImageFallback,
+  APP_LOGO_URL,
+  type BarberServiceCategory,
+} from "../../lib/defaulcatalogue";
 import { supabase } from "../../lib/superbase";
 
 type Service = {
@@ -14,16 +19,17 @@ type Service = {
   price?: number;
   bookingsToday: number;
   imageUrl: string;
+  /** Needed by applyImageFallback for the SVG placeholder step. */
+  category: BarberServiceCategory;
+  /** Needed by applyImageFallback for the logo step. */
+  fallbackImageUrl: string;
 };
 
 type ServicesProps = {
-  /** The barber whose services to load. Defaults to the signed-in user's. */
   barberId?: string;
   onAddService?: (service: Service) => void;
   onRemoveService?: (service: Service) => void;
 };
-
-/* ---------- Raw shape from get_barber_services_with_bookings ---------- */
 
 type ServiceRow = {
   service_name: string;
@@ -31,27 +37,30 @@ type ServiceRow = {
   bookings_today: number;
 };
 
-/* ---------- Front-end-only helpers ---------- */
+/* ---------- Catalogue lookup ---------- */
 
-const FALLBACK_IMAGE =
-  "https://images.unsplash.com/photo-1621605815971-fbc98d665033?auto=format&fit=crop&w=500&q=80";
+const FALLBACK_IMAGE = APP_LOGO_URL;
 
-// Match catalogue entries by name (case-insensitive) since the RPC
-// doesn't return service_code.
-const CATALOGUE_BY_NAME = new Map(
-  DEFAULT_BARBER_SERVICES.map((s) => [s.name.toLowerCase(), s])
+const normalise = (s: string) =>
+  s.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+
+const CATALOGUE_BY_NORMALISED_NAME = new Map(
+  DEFAULT_BARBER_SERVICES.map((s) => [normalise(s.name), s])
 );
 
-const imageForName = (name: string): string => {
-  const entry = CATALOGUE_BY_NAME.get(name.toLowerCase());
-  return entry
-    ? `${entry.imageUrl}?auto=format&fit=crop&w=500&q=80`
-    : FALLBACK_IMAGE;
-};
+const catalogueEntryForName = (name: string) =>
+  CATALOGUE_BY_NORMALISED_NAME.get(normalise(name));
 
-const codeForName = (name: string): string | undefined => {
-  const entry = CATALOGUE_BY_NAME.get(name.toLowerCase());
-  return entry?.code;
+/** Resolve everything the card + fallback chain needs from just a name. */
+const resolveServiceVisuals = (
+  name: string,
+): { imageUrl: string; category: BarberServiceCategory; fallbackImageUrl: string } => {
+  const entry = catalogueEntryForName(name);
+  return {
+    imageUrl: entry ? entry.imageUrl : FALLBACK_IMAGE,
+    category: entry?.category ?? "hair", // safe default for legacy/custom
+    fallbackImageUrl: APP_LOGO_URL,
+  };
 };
 
 const formatPrice = (price: number) =>
@@ -80,7 +89,6 @@ export default function Services({
       setLoading(true);
       setError(null);
 
-      // If no explicit barberId, fall back to the signed-in user.
       let targetId = barberId;
       if (!targetId) {
         const {
@@ -112,17 +120,18 @@ export default function Services({
       }
 
       const mapped: Service[] = ((data ?? []) as ServiceRow[]).map(
-        (row, index) => ({
-          // RPC has no id — derive a stable one from name so React keys
-          // and remove-logic still work. Swap for a real id once the
-          // function returns one.
-          id: codeForName(row.service_name) ?? `${row.service_name}-${index}`,
-          code: codeForName(row.service_name),
-          name: row.service_name,
-          price: row.price,
-          bookingsToday: row.bookings_today,
-          imageUrl: imageForName(row.service_name),
-        })
+        (row, index) => {
+          const entry = catalogueEntryForName(row.service_name);
+          const visuals = resolveServiceVisuals(row.service_name);
+          return {
+            id: entry?.code ?? `${row.service_name}-${index}`,
+            code: entry?.code,
+            name: row.service_name,
+            price: row.price,
+            bookingsToday: row.bookings_today,
+            ...visuals,
+          };
+        }
       );
 
       setServiceList(mapped);
@@ -160,13 +169,15 @@ export default function Services({
       return;
     }
 
+    const visuals = resolveServiceVisuals(result.data.name);
+
     const newService: Service = {
       id: result.data.id,
       code: result.data.service_code ?? picked.code,
       name: result.data.name,
       price: result.data.price,
       bookingsToday: 0,
-      imageUrl: imageForName(result.data.name),
+      ...visuals,
     };
 
     setServiceList((current) => [...current, newService]);
@@ -179,12 +190,10 @@ export default function Services({
 
   return (
     <div className="flex flex-col flex-1 min-h-0 bg-zinc-950">
-      {/* Header */}
       <div className="px-4 py-3 shrink-0">
         <h2 className="text-lg font-bold text-white">Services</h2>
       </div>
 
-      {/* Error banner */}
       {error && (
         <div className="mx-4 mb-2 shrink-0 rounded-xl bg-red-500/10 border border-red-500/30 px-3 py-2 text-xs text-red-300 flex items-center justify-between gap-2">
           <span>{error}</span>
@@ -199,7 +208,6 @@ export default function Services({
         </div>
       )}
 
-      {/* Service List */}
       <div className="flex-1 min-h-0 overflow-y-auto px-4 pb-4 flex flex-col gap-2">
         {loading && (
           <p className="text-white/50 text-sm text-center py-8">
@@ -226,7 +234,6 @@ export default function Services({
               }}
               className="rounded-xl bg-white/5 overflow-hidden flex h-[120px] shrink-0"
             >
-              {/* Service Info */}
               <div className="flex-1 px-4 py-3 flex flex-col justify-between min-w-0">
                 <div>
                   <div className="text-sm font-bold text-white truncate">
@@ -255,11 +262,11 @@ export default function Services({
                 </button>
               </div>
 
-              {/* Service Image */}
               <div className="w-32 shrink-0">
                 <img
                   src={service.imageUrl}
                   alt={service.name}
+                  onError={(e) => applyImageFallback(e.currentTarget, service)}
                   className="w-full h-full object-cover"
                 />
               </div>
@@ -267,7 +274,6 @@ export default function Services({
           ))}
       </div>
 
-      {/* Add Service */}
       <div className="px-4 py-3 shrink-0 border-t border-white/10">
         <button
           type="button"
